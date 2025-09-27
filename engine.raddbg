@@ -1,0 +1,10 @@
+// raddbg 0.9.20 project file
+
+recent_file: path: "src/main.cpp"
+recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/startup/exe_common.inl"
+target:
+{
+  executable: "build/main.exe"
+  working_directory: build
+  enabled: 1
+}

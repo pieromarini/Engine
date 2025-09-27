@@ -1,0 +1,46 @@
+.DS_Store
+
+# Extra
+imgui.ini
+compile_commands.json
+settings.json
+launch.json
+*.plist
+
+# clangd completion with compile-commands
+.clangd
+
+# build/compilation artifacts
+*.o
+*.a
+*.lib
+*.a
+*.out
+
+# Output
+bin/
+
+# CMake
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+cmake_uninstall.cmake
+
+# Build folders
+build/
+build_nvim/
+target/
+
+# Renderdoc capture/debugging settings
+*.cap
+
+.cache
+
+# Cmake FetchContent build dirs
+extern/assimp*
+extern/sdl*
+
+# Compiled SPV shaders
+res/shaders/*.spv
+res/models/bistro
+res/fonts/msdf-atlas-gen.exe

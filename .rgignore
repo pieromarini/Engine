@@ -1,0 +1,7 @@
+extern/
+res/textures/
+res/models/
+res/fonts/
+res/shaders/*.spv
+build/
+local/
