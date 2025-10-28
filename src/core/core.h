@@ -2,6 +2,52 @@
 
 #include <cstdint>
 
+#if defined(_WIN32)
+#define PLATFORM_WINDOWS
+#elif defined(__linux__) || defined(__APPLE__)
+#define PLATFORM_POSIX
+#endif
+
+
+#if LANG_CPP
+# define no_name_mangle extern "C"
+#else
+# define no_name_mangle
+#endif
+
+# define root_global no_name_mangle
+# define root_function no_name_mangle function
+
+#ifdef PLATFORM_WINDOWS
+# define exported no_name_mangle __declspec(dllexport)
+#else
+# define exported no_name_mangle
+#endif
+
+#ifdef PLATFORM_WINDOWS
+# define imported no_name_mangle __declspec(dllimport)
+#else
+# define imported no_name_mangle
+#endif
+
+#if COMPILER_MSVC || (COMPILER_CLANG && defined(PLATFORM_WINDOWS))
+# pragma section(".rdata$", read)
+# define read_only __declspec(allocate(".rdata$"))
+#elif (COMPILER_CLANG && OS_LINUX)
+# define read_only __attribute__((section(".rodata")))
+#else
+// TODO: gcc
+#endif
+
+#if defined(__clang__)
+# define Expect(expr, val) __builtin_expect((expr), (val))
+#else
+# define Expect(expr, val) (expr)
+#endif
+
+#define Likely(expr)   Expect(expr, 1)
+#define Unlikely(expr) Expect(expr, 0)
+
 // Custom base type names
 using i8 = int8_t;
 using i16 = int16_t;
@@ -17,6 +63,43 @@ using b32 = i32;
 using b64 = i64;
 using f32 = float;
 using f64 = double;
+
+read_only static u8 u8Max = 0xFF;
+read_only static u8 u8Min = 0;
+
+read_only static u16 u16Max = 0xFFFF;
+read_only static u16 u16Min = 0;
+
+read_only static u32 u32Max = 0xFFFFFFFF;
+read_only static u32 u32Min = 0;
+
+read_only static u64 u64Max = 0xFFFFFFFFFFFFFFFF;
+read_only static u64 u64Min = 0;
+
+read_only static i8 i8Max = 0x7F;
+read_only static i8 i8Min = -1 - 0x7F;
+
+read_only static i16 i16Max = 0x7FFF;
+read_only static i16 i16Min = -1 - 0x7FFF;
+
+read_only static i32 i32Max = 0x7FFFFFFF;
+read_only static i32 i32Min = -1 - 0x7FFFFFFF;
+
+read_only static i64 i64Max = 0x7FFFFFFFFFFFFFFF;
+read_only static i64 i64Min = -1 - 0x7FFFFFFFFFFFFFFF;
+
+read_only static u32 signF32 = 0x80000000;
+read_only static u32 exponentF32 = 0x7F800000;
+read_only static u32 mantissaF32 = 0x7FFFFF;
+
+read_only static f32 f32Max = 3.402823e+38f;
+read_only static f32 f32Min = -3.402823e+38f;
+read_only static f32 f32SmallestPositive = 1.1754943508e-38;
+read_only static f32 f32Epsilon = 5.96046448e-8;
+
+read_only static u64 signF64 = 0x8000000000000000ull;
+read_only static u64 exponentF64 = 0x7FF0000000000000ull;
+read_only static u64 mantissaF64 = 0xFFFFFFFFFFFFFull;
 
 // integer/pointers
 #define ArrayCount(a) (sizeof(a) / sizeof((a)[0]))
@@ -49,12 +132,6 @@ using f64 = double;
 #define AlignPow2(x, b) (((x) + (b) - 1) & (~((b) - 1)))
 #define AlignDownPow2(x, b) ((x) & (~((b) - 1)))
 
-#if defined(_WIN32)
-#define PLATFORM_WINDOWS
-#elif defined(__linux__) || defined(__APPLE__)
-#define PLATFORM_POSIX
-#endif
-
 // assertions
 #if defined(PLATFORM_WINDOWS)
 #define BreakDebugger() __debugbreak()
@@ -73,6 +150,28 @@ using f64 = double;
 
 // #define NotImplemented AssertAlways(!"Not Implemented")
 // #define InvalidPath AssertAlways(!"Invalid Path")
+
+static f32 AbsoluteValue(f32 f) {
+	union { u32 u; f32 f; } x{};
+	x.f = f;
+	x.u = x.u & ~signF32;
+	return x.f;
+}
+
+static f64 AbsoluteValue(f64 f) {
+	union { u64 u; f64 f; } x{};
+	x.f = f;
+	x.u = x.u & ~signF64;
+	return x.f;
+}
+
+static f32 SignFromF32(f32 f) {
+	return f < 0.f ? -1.f : +1.f;
+}
+
+static f64 SignFromF64(f64 f) {
+	return f < 0.0 ? -1.0 : +1.0;
+}
 
 // memory copy/move/set wrappers
 #define MemoryCopy(dst, src, size) memcpy((dst), (src), (size))

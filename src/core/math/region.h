@@ -37,12 +37,24 @@ struct Rect3D {
 	vec3 max;
 };
 
+inline f32 clamp1F32(Rect1DF32 r, f32 v) {
+	v = Clamp(r.min, v, r.max);
+	return v;
+}
+
 inline vec2 rect2DSize(Rect2D r) {
-	// return glm::abs(r.max - r.min);
+	return { AbsoluteValue(r.max.x - r.min.x), AbsoluteValue(r.max.y - r.min.y) };
 }
 
 inline vec2 rect2DCenter(Rect2D r) {
 	return (r.max + r.min) / 2.0f;
+}
+
+inline Rect2D rect2DUnion(Rect2D a, Rect2D b) {
+ return {
+	 { Min(a.min.x, b.min.x), Min(a.min.y, b.min.y) },
+   { Max(a.max.x, b.max.x), Max(a.max.y, b.max.y) }
+ };
 }
 
 inline Rect2D rect2DIntersect(Rect2D a, Rect2D b) {
@@ -58,11 +70,6 @@ inline Rect2D rect2DPad(Rect2D r, f32 x) {
 
 inline Rect2D rect2DShift(Rect2D r, vec2 v) {
 	return { .min = r.min + v, .max = r.max + v };
-}
-
-inline f32 clamp1F32(Rect1DF32 r, f32 v) {
-	v = Clamp(r.min, v, r.max);
-	return v;
 }
 
 inline b32 rect2DContains(Rect2D r, vec2 v) {

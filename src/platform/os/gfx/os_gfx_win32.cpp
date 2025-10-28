@@ -1,8 +1,8 @@
-#include <Uxtheme.h>
 #include <dwmapi.h>
 #include <oleidl.h>
 #include <windows.h>
 #include <windowsx.h>
+#include <Uxtheme.h>
 
 
 #include "core/core.h"
