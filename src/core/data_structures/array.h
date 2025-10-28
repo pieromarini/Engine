@@ -4,8 +4,6 @@
 #include <cstddef>
 #include <cstring>
 
-namespace pm {
-
 #define DynamicArrayDeclare(name, type) struct name { type* data; ptrdiff_t len; ptrdiff_t cap; }
 
 #define DynamicArray_push(arena, s)                             						 \
@@ -32,5 +30,3 @@ static void DynamicArray_grow(Arena* a, void *slice, std::ptrdiff_t size) {
 
 	memcpy(slice, &replica, sizeof(replica));
 }
-
-};// namespace pm

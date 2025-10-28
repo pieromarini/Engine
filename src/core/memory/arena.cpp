@@ -1,9 +1,8 @@
 #include "arena.h"
 #include "core/core.h"
-#include "platform/os/os.h"
-#include <cassert>
+#include "platform/os/core/os_core.h"
 
-namespace pm {
+#include <cassert>
 
 Arena* arenaAlloc(u64 size) {
 	return arenaAlloc({ .flags = arenaDefaultFlags, .reserveSize = size, .commitSize = arenaDefaultCommitSize });
@@ -139,6 +138,3 @@ Temp tempBegin(Arena* arena) {
 void tempEnd(Temp temp) {
 	arenaPopTo(temp.arena, temp.pos);
 }
-
-
-}// namespace pm

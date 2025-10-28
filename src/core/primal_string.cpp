@@ -5,8 +5,6 @@
 #define STB_SPRINTF_IMPLEMENTATION
 #include "stb/stb_sprintf.h"
 
-namespace pm {
-
 b32 charIsAlpha(u8 c) {
 	return charIsAlphaUpper(c) || charIsAlphaLower(c);
 }
@@ -176,4 +174,98 @@ u64 FindSubstr8(String8 haystack, String8 needle, u64 startPos, MatchFlags flags
 	return found_idx;
 }
 
-};// namespace pm
+static const u8 utf8_class[32] = {
+ 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,2,2,2,2,3,3,4,5,
+};
+
+#define bitmask1 0x01
+#define bitmask2 0x03
+#define bitmask3 0x07
+#define bitmask4 0x0F
+#define bitmask5 0x1F
+#define bitmask6 0x3F
+#define bitmask7 0x7F
+#define bitmask8 0xFF
+#define bitmask9 0x01FF
+#define bitmask10 0x03FF
+
+DecodedCodepoint DecodeCodepointFromUtf8(u8* str, u64 max) {
+	DecodedCodepoint result = { ~((u32)0), 1 };
+	u8 byte = str[0];
+	u8 byte_class = utf8_class[byte >> 3];
+	switch (byte_class) {
+	case 1: {
+		result.codepoint = byte;
+	} break;
+
+	case 2: {
+		if (2 <= max) {
+			u8 cont_byte = str[1];
+			if (utf8_class[cont_byte >> 3] == 0) {
+				result.codepoint = (byte & bitmask5) << 6;
+				result.codepoint |= (cont_byte & bitmask6);
+				result.advance = 2;
+			}
+		}
+	} break;
+
+	case 3: {
+		if (3 <= max) {
+			u8 cont_byte[2] = { str[1], str[2] };
+			if (utf8_class[cont_byte[0] >> 3] == 0 && utf8_class[cont_byte[1] >> 3] == 0) {
+				result.codepoint = (byte & bitmask4) << 12;
+				result.codepoint |= ((cont_byte[0] & bitmask6) << 6);
+				result.codepoint |= (cont_byte[1] & bitmask6);
+				result.advance = 3;
+			}
+		}
+	} break;
+
+	case 4: {
+		if (4 <= max) {
+			u8 cont_byte[3] = { str[1], str[2], str[3] };
+			if (utf8_class[cont_byte[0] >> 3] == 0 && utf8_class[cont_byte[1] >> 3] == 0 && utf8_class[cont_byte[2] >> 3] == 0) {
+				result.codepoint = (byte & bitmask3) << 18;
+				result.codepoint |= ((cont_byte[0] & bitmask6) << 12);
+				result.codepoint |= ((cont_byte[1] & bitmask6) << 6);
+				result.codepoint |= (cont_byte[2] & bitmask6);
+				result.advance = 4;
+			}
+		}
+	} break;
+	}
+
+	return result;
+}
+u32 Utf16FromCodepoint(u16* out, u32 codepoint) {
+	u32 advance = 1;
+	if (codepoint == ~((u32)0)) {
+		out[0] = (u16)'?';
+	} else if (codepoint < 0x10000) {
+		out[0] = (u16)codepoint;
+	} else {
+		u64 v = codepoint - 0x10000;
+		out[0] = 0xD800 + (v >> 10);
+		out[1] = 0xDC00 + (v & bitmask10);
+		advance = 2;
+	}
+	return advance;
+}
+
+String16 Str16From8(Arena* arena, String8 in) {
+	u64 cap = in.size * 2;
+	u16* str = PushArrayNoZero(arena, u16, cap + 1);
+	u8* ptr = in.str;
+	u8* opl = ptr + in.size;
+	u64 size = 0;
+	DecodedCodepoint consume{};
+	for (; ptr < opl;) {
+		consume = DecodeCodepointFromUtf8(ptr, opl - ptr);
+		ptr += consume.advance;
+		size += Utf16FromCodepoint(str + size, consume.codepoint);
+	}
+	str[size] = 0;
+	arenaPop(arena, 2 * (cap - size));
+	String16 result = { .str = str, .size = size };
+	return result;
+}

@@ -1,9 +1,9 @@
-#include "os.h"
+#include "core/entry_point.h"
+#include "core/thread_context.h"
+#include "os_core.h"
 
 #include <sys/mman.h>
 #include <unistd.h>
-
-namespace pm {
 
 u64 OS_pageSize() {
 	u64 result = getpagesize();
@@ -37,5 +37,14 @@ void OS_abort() {
 	_exit(0);
 }
 
+int main(int argc, char** argv) {
+	ThreadCtx tCtx = ThreadCtx_alloc();
+	ThreadCtx_set(&tCtx);
 
-};// namespace pm
+	mainEntryPoint(__argc, __argv);
+
+	ThreadCtx_set(&tCtx);
+	ThreadCtx_release();
+
+  return 0;
+}

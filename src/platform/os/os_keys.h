@@ -2,8 +2,6 @@
 
 #include "core/primal_string.h"
 
-namespace pm {
-
 enum OS_Key {
 	OS_Key_Null,
 	OS_Key_Esc,
@@ -194,5 +192,3 @@ static const String8 osKeyStringTable[92] = {
 	Str8L("Right Mouse Button"),
 	Str8L("Semicolon"),
 };
-
-}// namespace pm

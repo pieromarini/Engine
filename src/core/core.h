@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-namespace pm {
-
 // Custom base type names
 using i8 = int8_t;
 using i16 = int16_t;
@@ -206,5 +204,3 @@ enum Axis2D {
 };
 
 #define Axis2D_Flip(a) ((Axis2D)(!(a)))
-
-}// namespace pm

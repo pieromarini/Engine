@@ -2,8 +2,6 @@
 
 #include "core/core.h"
 
-namespace pm {
-
 constexpr u32 ARENA_HEADER_SIZE = 128;
 
 using ArenaFlags = u32;
@@ -67,6 +65,3 @@ void tempEnd(Temp temp);
 
 #define PushArray(a, T, c) PushArrayAligned(a, T, c, Max(8, alignof(T)))
 #define PushStruct(a, T) PushArrayAligned(a, T, 1, Max(8, alignof(T)))
-
-
-}// namespace pm

@@ -1,7 +1,5 @@
 #include "thread_context.h"
 
-namespace pm {
-
 per_thread ThreadCtx* threadCtx = 0;
 
 ThreadCtx ThreadCtx_alloc() {
@@ -52,5 +50,3 @@ Temp ScratchBegin(Arena** conflicts, u64 conflictsCount) {
 	}
 	return scratch;
 }
-
-};// namespace pm

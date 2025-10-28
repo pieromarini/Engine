@@ -3,8 +3,6 @@
 #include "core/core.h"
 #include "vector.h"
 
-namespace pm {
-
 union quat {
 	vec4 xyzw;
 	struct {
@@ -15,5 +13,3 @@ union quat {
 	};
 	f32 elements[4];
 };
-
-}// namespace pm

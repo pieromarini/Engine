@@ -1,11 +1,12 @@
-#include "os.h"
+#include "core/entry_point.h"
+#include "core/thread_context.h"
+#include "os_core.h"
+#include <cstdio>
 
 #define WIN32_LEAN_AND_MEAN
 // NOTE(piero): These conflict with our Min/Max macros
 #define NOMINMAX
 #include <windows.h>
-
-namespace pm {
 
 u64 OS_pageSize() {
 	SYSTEM_INFO info;
@@ -40,4 +41,27 @@ void OS_abort() {
 	ExitProcess(1);
 }
 
-};
+int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nShowCmd) {
+	ThreadCtx tCtx = ThreadCtx_alloc();
+	ThreadCtx_set(&tCtx);
+
+#if DEBUG
+	// Create console in debug mode
+	AllocConsole();
+	FILE* fp = nullptr;
+	freopen_s(&fp, "CONOUT$", "w", stdout);
+	freopen_s(&fp, "CONOUT$", "w", stderr);
+	freopen_s(&fp, "CONIN$", "r", stdin);
+#endif
+
+	mainEntryPoint(__argc, __argv);
+
+#if DEBUG
+	FreeConsole();
+#endif
+
+	ThreadCtx_set(&tCtx);
+	ThreadCtx_release();
+
+  return 0;
+}

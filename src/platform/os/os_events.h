@@ -4,22 +4,19 @@
 #include "core/math/math.h"
 #include "core/primal_string.h"
 
-#include "keys.h"
-
-namespace pm {
-
-using OS_Handle = u64;
+#include "os_keys.h"
+#include "platform/os/core/os_core.h"
 
 enum OS_EventKind {
-	OSEventKind_Null,
-	OSEventKind_WindowClose,
-	OSEventKind_WindowLoseFocus,
-	OSEventKind_Press,
-	OSEventKind_Release,
-	OSEventKind_Text,
-	OSEventKind_Scroll,
-	OSEventKind_DropFile,
-	OSEventKind_COUNT
+	OS_EventKind_Null,
+	OS_EventKind_WindowClose,
+	OS_EventKind_WindowLoseFocus,
+	OS_EventKind_Press,
+	OS_EventKind_Release,
+	OS_EventKind_Text,
+	OS_EventKind_Scroll,
+	OS_EventKind_DropFile,
+	OS_EventKind_COUNT
 };
 
 using OS_Modifiers = u32;
@@ -32,7 +29,7 @@ enum {
 struct OS_Event {
 	OS_Event* next;
 	OS_Event* prev;
-	OS_Handle window;
+	OSWindowHandle window;
 	OS_EventKind kind;
 	OS_Modifiers modifiers;
 	OS_Key key;
@@ -52,5 +49,3 @@ struct OS_ModifiersKeyPair {
 	OS_Modifiers modifiers;
 	OS_Key key;
 };
-
-}// namespace pm

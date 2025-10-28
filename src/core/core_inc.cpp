@@ -3,4 +3,4 @@
 
 #include "memory/arena.cpp"
 
-#include "data_structures/stack.cpp"
+#include "entry_point.cpp"

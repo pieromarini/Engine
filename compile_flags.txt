@@ -1,7 +1,6 @@
 -std=c++20
 -g
 -O0
--DDEBUG=1
 -Isrc
 -Ilocal
 -Ithird_party
@@ -21,13 +20,11 @@
 -Wno-single-bit-bitfield-constant-conversion
 -Xclang
 -flto-visibility-public-std
--D_USE_MATH_DEFINES
--Dstrdup=_strdup
--Dgnu_printf=printf
 -maes
 -msse4
 -mssse3
 -Wno-macro-redefined
 -Wno-initializer-overrides
 -Wno-visibility
+-DDEBUG=1
 -DCOMPILER_MSVC=1

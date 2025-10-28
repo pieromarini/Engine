@@ -12,3 +12,5 @@
 #include "data_structures/stack.h"
 
 #include "math/math.h"
+
+#include "entry_point.h"

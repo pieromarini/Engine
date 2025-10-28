@@ -1,10 +1,28 @@
-// raddbg 0.9.20 project file
+// raddbg 0.9.23 project file
 
+recent_file: path: "src/platform/os/gfx/os_gfx_win32.cpp"
 recent_file: path: "src/main.cpp"
+recent_file: path: "src/core/entry_point.cpp"
+recent_file: path: "src/core/primal_string.cpp"
+recent_file: path: "src/platform/os/core/os_core_win32.cpp"
+recent_file: path: "d:/os/obj/amd64fre/minkernel/crts/ucrt/src/appcrt/startup/mt/objfre/amd64/minkernel/crts/ucrt/src/appcrt/startup/argv_data.cpp"
 recent_file: path: "D:/a/_work/1/s/src/vctools/crt/vcstartup/src/startup/exe_common.inl"
 target:
 {
   executable: "build/main.exe"
   working_directory: build
   enabled: 1
+  entry_point: entryPoint
+}
+breakpoint:
+{
+  source_location: "src/platform/os/gfx/os_gfx_win32.cpp:457:1"
+  hit_count: 0
+  enabled: 0
+}
+breakpoint:
+{
+  source_location: "src/platform/os/gfx/os_gfx_win32.cpp:45:1"
+  enabled: 0
+  hit_count: 0
 }

@@ -2,8 +2,6 @@
 
 #include "core/core.h"
 
-namespace pm {
-
 #define StackDeclareNode(node_name, type) \
 	struct node_name##Node {                \
 		node_name##Node* next;                \
@@ -65,5 +63,3 @@ namespace pm {
 	StackPush(state->name_lower##Stack.top, node);                   \
 	state->name_lower##Stack.autoPop = 1;                            \
 	return old_value;
-
-}// namespace pm

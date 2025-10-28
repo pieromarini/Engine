@@ -4,9 +4,6 @@
 #include "memory/arena.h"
 #include "core/math/math.h"
 
-namespace pm {
-
-
 using MatchFlags = u32;
 enum {
 	MatchFlag_CaseInsensitive = (1 << 0),
@@ -14,6 +11,11 @@ enum {
 	MatchFlag_SlashInsensitive = (1 << 2),
 	MatchFlag_FindLast = (1 << 3),
 	MatchFlag_KeepEmpties = (1 << 4),
+};
+
+struct DecodedCodepoint {
+	u32 codepoint;
+	u32 advance;
 };
 
 b32 charIsAlpha(u8 c);
@@ -54,4 +56,9 @@ String8 Str8Skip(String8 str, u64 min);
 String8 Substr8(String8 str, Rect1D rect);
 u64 FindSubstr8(String8 haystack, String8 needle, u64 startPos, MatchFlags flags);
 
-}// namespace pm
+// UTF Decoding
+DecodedCodepoint DecodeCodepointFromUtf8(u8 *str, u64 max);
+u32 Utf16FromCodepoint(u16 *out, u32 codepoint);
+
+// UTF Conversion
+String16 Str16From8(Arena *arena, String8 in);

@@ -1,5 +1,7 @@
 #if defined(PLATFORM_WINDOWS)
-#include "os_win32.cpp"
+#include "core/os_core_win32.cpp"
+#include "gfx/os_gfx_win32.cpp"
 #elif defined(PLATFORM_LINUX)
-#include "os_linux.cpp"
+#include "core/os_core_linux.cpp"
+#include "gfx/os_gfx_linux.cpp"
 #endif

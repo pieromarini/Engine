@@ -3,8 +3,6 @@
 #include "core/core.h"
 #include "vector.h"
 
-namespace pm {
-
 struct Rect1D {
 	// Constructor to always "sort" the min/max values
 	Rect1D(u64 _min, u64 _max) : min(_min), max(_max) {
@@ -70,6 +68,3 @@ inline f32 clamp1F32(Rect1DF32 r, f32 v) {
 inline b32 rect2DContains(Rect2D r, vec2 v) {
 	return (r.min.x <= v.x && v.x <= r.max.x) && (r.min.y <= v.y && v.y <= r.max.y);
 }
-
-
-}// namespace pm

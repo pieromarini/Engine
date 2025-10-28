@@ -577,9 +577,9 @@ cl = lg;                                 \
    // copy the string in
    goto scopy;
    
-	 case 'S': // pm::String8
+	 case 'S': // String8
    {
-		 pm::String8 str = va_arg(va, pm::String8);
+		 String8 str = va_arg(va, String8);
     
     s = (char *)str.str;
     sn = (const char *)(str.str + str.size);

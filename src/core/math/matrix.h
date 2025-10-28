@@ -6,8 +6,6 @@
 
 #include <cmath>
 
-namespace pm {
-
 struct mat3 {
 	f32 elements[3][3];
 };
@@ -175,5 +173,3 @@ inline mat4 matInverse(mat4 m) {
 
 	return inverse * oneOverDet;
 }
-
-}// namespace pm

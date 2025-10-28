@@ -20,7 +20,7 @@ if "%telemetry%"=="1" set auto_compile_flags=%auto_compile_flags% -DBUILD_TELEME
 if "%asan%"=="1"      set auto_compile_flags=%auto_compile_flags% -fsanitize=address && echo [ASAN enabled]
 
 set cl_common=     /I..\src\ /I..\third_party\ /I..\local\ /std:c++20 /nologo /FC /Z7 /EHsc
-set clang_common=  -I..\src\ -I..\third_party\ -I..\local\ -std=c++20 -gcodeview -fdiagnostics-absolute-paths -Wall -Wno-unknown-warning-option -Wno-missing-braces -Wno-unused-function -Wno-writable-strings -Wno-unused-value -Wno-unused-variable -Wno-unused-local-typedef -Wno-deprecated-register -Wno-deprecated-declarations -Wno-unused-but-set-variable -Wno-single-bit-bitfield-constant-conversion -Xclang -flto-visibility-public-std -D_USE_MATH_DEFINES -Dstrdup=_strdup -Dgnu_printf=printf -maes -msse4 -mssse3 -Wno-macro-redefined -Wno-initializer-overrides -Wno-visibility
+set clang_common=  -I..\src\ -I..\third_party\ -I..\local\ -std=c++20 -gcodeview -fdiagnostics-absolute-paths -Wall -Wno-unknown-warning-option -Wno-missing-braces -Wno-unused-function -Wno-writable-strings -Wno-unused-value -Wno-unused-variable -Wno-unused-local-typedef -Wno-deprecated-register -Wno-deprecated-declarations -Wno-unused-but-set-variable -Wno-single-bit-bitfield-constant-conversion -Xclang -flto-visibility-public-std -maes -msse4 -mssse3 -Wno-macro-redefined -Wno-initializer-overrides -Wno-visibility
 set cl_debug=      call cl /Od /DDEBUG=1 %cl_common% %auto_compile_flags%
 set cl_release=    call cl /O2 /DDEBUG=0 %cl_common% %auto_compile_flags%
 set clang_debug=   call clang -g -O0 -DDEBUG=1 %clang_common% %auto_compile_flags%

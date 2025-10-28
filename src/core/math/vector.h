@@ -4,8 +4,6 @@
 
 #include <cmath>
 
-namespace pm {
-
 union vec2 {
 	struct {
 		f32 x;
@@ -170,5 +168,3 @@ inline vec4 vecNormalize(vec4 a) {
 inline vec4 mix(vec4 a, vec4 b, f32 t) {
 	return vec4{ a.x * (1.0f - t) + b.x * t, a.y * (1.0f - t) + b.y * t, a.z * (1.0f - t) + b.z * t, a.w * (1.0f - t) + b.w * t };
 }
-
-}// namespace pm

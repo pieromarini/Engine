@@ -2,8 +2,6 @@
 
 #include "core/memory/arena.h"
 
-namespace pm {
-
 struct Arena;
 struct Temp;
 
@@ -26,5 +24,3 @@ b32 ThreadCtx_isMainThread();
 
 Temp ScratchBegin(Arena** conflicts = nullptr, u64 conflictsCount = 0);
 #define ScratchEnd(temp) tempEnd(temp);
-
-};// namespace pm
