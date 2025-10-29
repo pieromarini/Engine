@@ -479,7 +479,6 @@ OSWindowHandle OS_createWindow(OS_WindowFlags flags, vec2 size, String8 title) {
 	return windowHandle;
 }
 
-
 void OS_destroyWindow(OSWindowHandle handle) {
 	Win32Window* window = OS_windowFromHandle(handle);
 	DLLRemove(win32GfxState->firstWindow, win32GfxState->lastWindow, window);
@@ -562,7 +561,7 @@ Rect2D OS_clientRectFromWindow(OSWindowHandle handle) {
 	Win32Window* window = OS_windowFromHandle(handle);
 	if (window) {
 		RECT w32Rect{};
-		if (GetWindowRect(window->hwnd, &w32Rect)) {
+		if (GetClientRect(window->hwnd, &w32Rect)) {
 			rect.min = { (f32)w32Rect.left, (f32)w32Rect.top };
 			rect.max = { (f32)w32Rect.right, (f32)w32Rect.bottom };
 		}

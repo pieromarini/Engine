@@ -1,6 +1,7 @@
 #include "core/entry_point.h"
 #include "core/thread_context.h"
 #include "os_core.h"
+#include "platform/os/gfx/os_gfx.h"
 #include <cstdio>
 
 #define WIN32_LEAN_AND_MEAN
@@ -39,6 +40,10 @@ void OS_decommit(void* ptr, u64 size) {
 
 void OS_abort() {
 	ExitProcess(1);
+}
+
+void OS_init() {
+	OS_gfxInit();
 }
 
 int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nShowCmd) {

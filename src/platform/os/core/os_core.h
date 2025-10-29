@@ -24,8 +24,6 @@ enum OS_CursorType {
 	OS_CursorType_COUNT
 };
 
-void OS_init();
-
 u64 OS_pageSize();
 
 void* OS_reserve(u64 size);
@@ -35,6 +33,8 @@ void OS_commit(void* ptr, u64 size);
 void OS_decommit(void* ptr, u64 size);
 
 void OS_abort();
+
+void OS_init();
 
 // Application entry point. Defined per platform
 static void entryPoint();

@@ -11,6 +11,7 @@ enum OS_EventKind {
 	OS_EventKind_Null,
 	OS_EventKind_WindowClose,
 	OS_EventKind_WindowLoseFocus,
+	OS_EventKind_WindowResize,
 	OS_EventKind_Press,
 	OS_EventKind_Release,
 	OS_EventKind_Text,

@@ -1,6 +1,8 @@
 // raddbg 0.9.23 project file
 
+recent_file: path: "src/platform/render/vulkan/render_vulkan.cpp"
 recent_file: path: "src/platform/os/gfx/os_gfx_win32.cpp"
+recent_file: path: "src/platform/render/vulkan/render_vulkan.h"
 recent_file: path: "src/main.cpp"
 recent_file: path: "src/core/entry_point.cpp"
 recent_file: path: "src/core/primal_string.cpp"

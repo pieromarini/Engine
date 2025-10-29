@@ -4,6 +4,7 @@
 -Isrc
 -Ilocal
 -Ithird_party
+-IC:\VulkanSDK\1.3.250.0\Include
 -gcodeview
 -fdiagnostics-absolute-paths
 -Wall
