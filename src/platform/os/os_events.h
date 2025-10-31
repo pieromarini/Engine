@@ -2,7 +2,7 @@
 
 #include "core/core.h"
 #include "core/math/math.h"
-#include "core/primal_string.h"
+#include "core/core_strings.h"
 
 #include "os_keys.h"
 #include "platform/os/core/os_core.h"

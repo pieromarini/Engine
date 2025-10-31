@@ -3,7 +3,7 @@
 #include "config.h"
 
 #include "core.h"
-#include "primal_string.h"
+#include "core_strings.h"
 #include "thread_context.h"
 
 #include "memory/arena.h"

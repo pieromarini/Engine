@@ -1,13 +1,12 @@
 #include "core/config.h"
 #include "core/core.h"
 #include "core/memory/arena.h"
+#include "core/thread_context.h"
 #include "platform/os/gfx/os_gfx_win32.h"
 #include "platform/render/vulkan/render_vulkan_transitions.h"
 #include "vulkan/vulkan_core.h"
 
 #include "render_vulkan.h"
-
-#include <vector>
 
 per_thread RenderVkState* renderVkState;
 
@@ -50,12 +49,16 @@ static bool isLayerSupported(const char* name) {
 	u32 propertyCount = 0;
 	VK_CHECK(vkEnumerateInstanceLayerProperties(&propertyCount, nullptr));
 
-	std::vector<VkLayerProperties> properties(propertyCount);
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&propertyCount, properties.data()));
+	Temp scratch = ScratchBegin();
+
+	VkLayerProperties* properties = PushArray(scratch.arena, VkLayerProperties, propertyCount);
+	VK_CHECK(vkEnumerateInstanceLayerProperties(&propertyCount, properties));
 
 	for (uint32_t i = 0; i < propertyCount; ++i)
 		if (strcmp(name, properties[i].layerName) == 0)
 			return true;
+
+	ScratchEnd(scratch);
 
 	return false;
 }
@@ -64,25 +67,30 @@ bool isInstanceExtensionSupported(const char* name) {
 	u32 propertyCount = 0;
 	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, nullptr));
 
-	std::vector<VkExtensionProperties> properties(propertyCount);
-	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, properties.data()));
+	Temp scratch = ScratchBegin();
+
+	VkExtensionProperties* properties = PushArray(scratch.arena, VkExtensionProperties, propertyCount);
+	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, properties));
 
 	for (uint32_t i = 0; i < propertyCount; ++i)
 		if (strcmp(name, properties[i].extensionName) == 0)
 			return true;
 
+	ScratchEnd(scratch);
+
 	return false;
 }
 
-const char** getSwapchainExtensions(uint32_t* count) {
+String8List getSwapchainExtensions(Arena* arena) {
+	String8List extensions{};
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-	static const char* extensions[] = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
-	*count = sizeof(extensions) / sizeof(extensions[0]);
-	return extensions;
+	Str8ListPush(arena, &extensions, Str8L(VK_KHR_SURFACE_EXTENSION_NAME));
+	Str8ListPush(arena, &extensions, Str8L(VK_KHR_WIN32_SURFACE_EXTENSION_NAME));
 #else
 	printf("[getSwapchainExtensions] Only implemented for win32");
-	abort();
+	OS_abort();
 #endif
+	return extensions;
 }
 
 VkInstance createInstance() {
@@ -122,28 +130,25 @@ VkInstance createInstance() {
 	createInfo.pNext = &validationFeatures;
 #endif
 
-	std::vector<const char*> extensions;
+	Temp scratch = ScratchBegin();
 
-	uint32_t swapchainExtensionCount{};
-	if (const char** swapchainExtensions = getSwapchainExtensions(&swapchainExtensionCount))
-		extensions.insert(extensions.end(), swapchainExtensions, swapchainExtensions + swapchainExtensionCount);
+	String8List extensionsList = getSwapchainExtensions(scratch.arena);
 
 #ifdef DEBUG
-	extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+	Str8ListPush(scratch.arena, &extensionsList, Str8L(VK_EXT_DEBUG_REPORT_EXTENSION_NAME));
 #endif
 
 	if (isInstanceExtensionSupported(VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		Str8ListPush(scratch.arena, &extensionsList, Str8L(VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
 
-	createInfo.ppEnabledExtensionNames = extensions.data();
-	createInfo.enabledExtensionCount = extensions.size();
-
-#ifdef VK_USE_PLATFORM_METAL_EXT
-	createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#endif
+	CStringArray extensionsArray = CStringArrayFromList(scratch.arena, extensionsList);
+	createInfo.ppEnabledExtensionNames = extensionsArray.strings;
+	createInfo.enabledExtensionCount = extensionsArray.count;
 
 	VkInstance instance = nullptr;
 	VK_CHECK(vkCreateInstance(&createInfo, nullptr, &instance));
+
+	ScratchEnd(scratch);
 
 	return instance;
 }
@@ -182,12 +187,16 @@ uint32_t getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice) {
 	uint32_t queueCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, nullptr);
 
-	std::vector<VkQueueFamilyProperties> queues(queueCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, queues.data());
+	Temp scratch = ScratchBegin();
+
+	VkQueueFamilyProperties* queues = PushArray(scratch.arena, VkQueueFamilyProperties, queueCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, queues);
 
 	for (uint32_t i = 0; i < queueCount; ++i)
 		if (queues[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			return i;
+
+	ScratchEnd(scratch);
 
 	return VK_QUEUE_FAMILY_IGNORED;
 }
@@ -196,15 +205,13 @@ static bool supportsPresentation(VkPhysicalDevice physicalDevice, uint32_t famil
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 	return !!vkGetPhysicalDeviceWin32PresentationSupportKHR(physicalDevice, familyIndex);
 #else
-	return true;
+	return false;
 #endif
 }
 
 VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint32_t physicalDeviceCount) {
 	VkPhysicalDevice preferred = nullptr;
 	VkPhysicalDevice fallback = nullptr;
-
-	const char* ngpu = getenv("NGPU");
 
 	for (uint32_t i = 0; i < physicalDeviceCount; ++i) {
 		VkPhysicalDeviceProperties props;
@@ -224,10 +231,6 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint32_t 
 
 		if (props.apiVersion < API_VERSION)
 			continue;
-
-		if (ngpu && atoi(ngpu) == i) {
-			preferred = physicalDevices[i];
-		}
 
 		if (!preferred && props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
 			preferred = physicalDevices[i];
@@ -260,7 +263,7 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	queueInfo.queueCount = 1;
 	queueInfo.pQueuePriorities = queuePriorities;
 
-	std::vector<const char*> extensions = {
+	const char* extensions[] = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
@@ -304,8 +307,8 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	createInfo.queueCreateInfoCount = 1;
 	createInfo.pQueueCreateInfos = &queueInfo;
 
-	createInfo.ppEnabledExtensionNames = extensions.data();
-	createInfo.enabledExtensionCount = uint32_t(extensions.size());
+	createInfo.ppEnabledExtensionNames = extensions;
+	createInfo.enabledExtensionCount = ArrayCount(extensions);
 
 	createInfo.pNext = &features;
 	features.pNext = &features11;
@@ -337,8 +340,10 @@ VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfac
 	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr));
 	Assert(formatCount > 0);
 
-	std::vector<VkSurfaceFormatKHR> formats(formatCount);
-	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.data()));
+	Temp scratch = ScratchBegin();
+
+	VkSurfaceFormatKHR* formats = PushArray(scratch.arena, VkSurfaceFormatKHR, formatCount);
+	VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats));
 
 	if (formatCount == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
 		return VK_FORMAT_R8G8B8A8_UNORM;
@@ -347,28 +352,40 @@ VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfac
 		if (formats[i].format == VK_FORMAT_R8G8B8A8_UNORM || formats[i].format == VK_FORMAT_B8G8R8A8_UNORM)
 			return formats[i].format;
 
-	return formats[0].format;
+	VkFormat format = formats[0].format;
+
+	ScratchEnd(scratch);
+
+	return format;
 }
 
 static VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
-	if (VSYNC)
-		return VK_PRESENT_MODE_FIFO_KHR;// guaranteed to be available
-
+#if VSYNC
+	return VK_PRESENT_MODE_FIFO_KHR; // guaranteed to be available
+#else
 	uint32_t presentModeCount = 0;
 	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr));
 	Assert(presentModeCount > 0);
 
-	std::vector<VkPresentModeKHR> presentModes(presentModeCount);
-	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes.data()));
+	Temp scratch = ScratchBegin();
 
-	for (VkPresentModeKHR mode : presentModes) {
-		if (mode == VK_PRESENT_MODE_MAILBOX_KHR)
-			return mode;
-		if (mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
-			return mode;
+	VkPresentModeKHR* presentModes = PushArray(scratch.arena, VkPresentModeKHR, presentModeCount);
+	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, presentModes));
+
+	VkPresentModeKHR selectedMode = VK_PRESENT_MODE_FIFO_KHR;
+
+	// Only return a few present modes.
+	for (u32 i = 0; i < presentModeCount; ++i) {
+		if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+			selectedMode = VK_PRESENT_MODE_MAILBOX_KHR;
+		else if (presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)
+			selectedMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 	}
 
-	return VK_PRESENT_MODE_FIFO_KHR;
+	ScratchEnd(scratch);
+
+	return selectedMode;
+#endif
 }
 
 RenderVkSwapchain* createSwapchain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format, VkSwapchainKHR oldSwapchain) {
@@ -592,12 +609,6 @@ void Render_Vk_init() {
 		vkDestroyInstance(instance, nullptr);
 		return;
 	}
-
-	u32 extensionCount = 0;
-	VK_CHECK(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr));
-
-	std::vector<VkExtensionProperties> extensions(extensionCount);
-	VK_CHECK(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data()));
 
 	VkPhysicalDeviceProperties props = {};
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);

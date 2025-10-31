@@ -8,7 +8,7 @@
 #include "core/core.h"
 #include "core/math/region.h"
 #include "core/memory/arena.h"
-#include "core/primal_string.h"
+#include "core/core_strings.h"
 #include "core/thread_context.h"
 #include "os_gfx.h"
 #include "platform/os/os_events.h"

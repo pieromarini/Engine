@@ -4,6 +4,28 @@
 #include "memory/arena.h"
 #include "core/math/math.h"
 
+struct String8Node {
+	String8Node* next;
+	String8 string;
+};
+
+struct String8List {
+	String8Node* first;
+	String8Node* last;
+	u64 count;
+	u64 totalSize;
+};
+
+struct String8Array {
+	u32 count;
+	String8* strings;
+};
+
+struct CStringArray {
+	u32 count;
+	char** strings;
+};
+
 using MatchFlags = u32;
 enum {
 	MatchFlag_CaseInsensitive = (1 << 0),
@@ -33,8 +55,7 @@ u64 calculateCStringLength(const char* str);
 String8 Str8(u8* str, u64 size);
 
 #define Str8Zero() Str8{ 0, 0 }
-#define Str8C(cstring) \
-	Str8 { (u8*)(cstring), calculateCStringLength(cstring) }
+#define Str8C(cstring) Str8((u8*)(cstring), calculateCStringLength(cstring))
 #define Str8L(s) Str8((u8*)(s), sizeof(s) - 1)
 
 String8 Str8Range(u8* first, u8* onePastLast);
@@ -62,3 +83,12 @@ u32 Utf16FromCodepoint(u16 *out, u32 codepoint);
 
 // UTF Conversion
 String16 Str16From8(Arena *arena, String8 in);
+
+// String list
+void Str8ListPushNode(String8List* list, String8Node* node);
+void Str8ListPush(Arena* arena, String8List* list, String8 str);
+void Str8ListPushF(Arena* arena, String8List* list, char* fmt, ...);
+
+// String array
+String8Array Str8ArrayFromList(Arena* arena, String8List list);
+CStringArray CStringArrayFromList(Arena* arena, String8List list);

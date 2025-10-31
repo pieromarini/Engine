@@ -1,14 +1,12 @@
 #pragma once
 
 #include <cstdio>
+#include "core/core_strings.h"
 #include "core/memory/arena.h"
 #include "platform/os/core/os_core.h"
 
-#if PLATFORM_WINDOWS
 // TODO(piero): move this win32 define
 #define VK_USE_PLATFORM_WIN32_KHR
-#endif
-
 #define VOLK_IMPLEMENTATION
 #include <volk/volk.h>
 
@@ -112,11 +110,11 @@ struct RenderVkState {
 
 #ifdef DEBUG
 #define KHR_VALIDATION 1
-#else
-#define KHR_VALIDATION CONFIG_RELVAL
-#endif
-
 #define SYNC_VALIDATION 1
+#else
+#define KHR_VALIDATION CONFIG_VALIDATION
+#define SYNC_VALIDATION CONFIG_SYNC_VALIDATION
+#endif
 
 #define API_VERSION VK_API_VERSION_1_3
 
@@ -137,7 +135,7 @@ VkSampler createSampler(VkDevice device, VkFilter filter, VkSamplerMipmapMode mi
 
 static bool isLayerSupported(const char* name);
 bool isInstanceExtensionSupported(const char* name);
-const char** getSwapchainExtensions(uint32_t* count);
+String8List getSwapchainExtensions(Arena* arena);
 
 VkInstance createInstance();
 VkDebugReportCallbackEXT registerDebugCallback(VkInstance instance);

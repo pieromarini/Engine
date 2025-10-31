@@ -1,4 +1,4 @@
-#include "primal_string.cpp"
+#include "core_strings.cpp"
 #include "thread_context.cpp"
 
 #include "memory/arena.cpp"

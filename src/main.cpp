@@ -38,6 +38,7 @@ void update() {
 		next = event->next;
 		if (event->kind == OS_EventKind_WindowClose) {
 			OSWindowHandle window = event->window;
+	
 			OS_destroyWindow(window);
 			OS_consumeEvent(&events, event);
 		}
@@ -66,10 +67,6 @@ void entryPoint() {
 	while(state->firstWindow) {
 		update();
 	}
-
-	DLLRemove(state->firstWindow, state->lastWindow, window);
-
-	OS_destroyWindow(osWindow);
 
 	arenaRelease(arena);
 }

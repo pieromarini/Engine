@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/primal_string.h"
+#include "core/core_strings.h"
 
 enum OS_Key {
 	OS_Key_Null,

@@ -1,6 +1,11 @@
 // raddbg 0.9.23 project file
 
 recent_file: path: "src/platform/render/vulkan/render_vulkan.cpp"
+recent_file: path: "src/core/core_strings.cpp"
+recent_file: path: "../../../../j/msdk/build/Vulkan-ValidationLayers/repo/layers/vulkan/generated/chassis.cpp"
+recent_file: path: "../../../../j/msdk/build/Vulkan-ValidationLayers/repo/layers/core_checks/cc_queue.cpp"
+recent_file: path: "../../../../j/msdk/build/Vulkan-ValidationLayers/repo/layers/core_checks/cc_synchronization.cpp"
+recent_file: path: "../../../../j/msdk/build/Vulkan-ValidationLayers/repo/layers/vulkan/generated/chassis.h"
 recent_file: path: "src/platform/os/gfx/os_gfx_win32.cpp"
 recent_file: path: "src/platform/render/vulkan/render_vulkan.h"
 recent_file: path: "src/main.cpp"
@@ -15,16 +20,4 @@ target:
   working_directory: build
   enabled: 1
   entry_point: entryPoint
-}
-breakpoint:
-{
-  source_location: "src/platform/os/gfx/os_gfx_win32.cpp:457:1"
-  hit_count: 0
-  enabled: 0
-}
-breakpoint:
-{
-  source_location: "src/platform/os/gfx/os_gfx_win32.cpp:45:1"
-  enabled: 0
-  hit_count: 0
 }

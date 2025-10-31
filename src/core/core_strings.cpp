@@ -1,4 +1,4 @@
-#include "primal_string.h"
+#include "core_strings.h"
 
 #include <cstdarg>
 
@@ -43,7 +43,7 @@ u8 charToForwardSlash(u8 c) {
 
 u64 calculateCStringLength(const char* str) {
 	u64 length = 0;
-	for (; str[length]; length += 1);
+	for (; str[length]; length++);
 	return length;
 }
 
@@ -268,4 +268,52 @@ String16 Str16From8(Arena* arena, String8 in) {
 	arenaPop(arena, 2 * (cap - size));
 	String16 result = { .str = str, .size = size };
 	return result;
+}
+
+
+void Str8ListPushNode(String8List* list, String8Node* node) {
+	QueuePush(list->first, list->last, node);
+	list->count++;
+	list->totalSize += node->string.size;
+}
+
+void Str8ListPush(Arena* arena, String8List* list, String8 str) {
+	String8Node* node = PushStruct(arena, String8Node);
+	node->string = str;
+	Str8ListPushNode(list, node);
+}
+
+void Str8ListPushF(Arena* arena, String8List* list, char* fmt, ...) {
+	va_list args{};
+	va_start(args, fmt);
+	String8 str = PushStr8FV(arena, fmt, args);
+	va_end(args);
+	Str8ListPush(arena, list, str);
+}
+
+
+String8Array Str8ArrayFromList(Arena* arena, String8List list) {
+	String8Array arr{};
+	arr.count = list.count;
+	arr.strings = PushArrayNoZero(arena, String8, list.count);
+
+	u64 idx = 0;
+	for (String8Node* n = list.first; n != nullptr; n = n->next, idx++) {
+		arr.strings[idx] = n->string;
+	}
+
+	return arr;
+}
+
+CStringArray CStringArrayFromList(Arena* arena, String8List list) {
+	CStringArray arr{};
+	arr.count = list.count;
+	arr.strings = PushArray(arena, char*, list.count);
+
+	u64 idx = 0;
+	for (String8Node* n = list.first; n != nullptr; n = n->next, idx++) {
+		arr.strings[idx] = (char*)PushStr8Copy(arena, n->string).str;
+	}
+
+	return arr;
 }
