@@ -361,7 +361,7 @@ VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfac
 
 static VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
 #if VSYNC
-	return VK_PRESENT_MODE_FIFO_KHR; // guaranteed to be available
+	return VK_PRESENT_MODE_FIFO_KHR;
 #else
 	uint32_t presentModeCount = 0;
 	VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCount, nullptr));
@@ -402,9 +402,11 @@ RenderVkSwapchain* createSwapchain(VkPhysicalDevice physicalDevice, VkDevice dev
 
 	VkPresentModeKHR presentMode = getPresentMode(physicalDevice, surface);
 
-	VkCompositeAlphaFlagBitsKHR surfaceComposite =
-		(surfaceCaps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) ? VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR : (surfaceCaps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR) ? VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR :
-																																																																																																				VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+	VkCompositeAlphaFlagBitsKHR surfaceComposite = (surfaceCaps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+																									? VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+																									: ((surfaceCaps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR)
+																										? VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR 
+																										: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR);
 
 	VkSwapchainCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	createInfo.surface = surface;
@@ -589,7 +591,7 @@ void Render_Vk_init() {
 
 	VkInstance instance = createInstance();
 	if (!instance) {
-		printf("Invalid vulkan instance");
+		printf("[Render] Invalid vulkan instance");
 		return;
 	}
 
@@ -673,36 +675,17 @@ void Render_Vk_equipWindow(OSWindowHandle windowHandle) {
 
 	Render_Vk_createSurfaceWin32(windowHandle);
 
-	for (int i = 0; i < MAX_FRAMES; ++i) {
-		renderVkState->acquireSemaphores[i] = createSemaphore(device);
-		renderVkState->frameFences[i] = createFence(device);
-	}
-
 	VkBool32 presentSupported = 0;
 	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, renderVkState->graphicsQueueFamily, renderVkState->surface, &presentSupported));
-	Assert(presentSupported);
+	if (!presentSupported) {
+		printf("[Render] No surface with present support. Exiting");
+		OS_abort();
+	}
 
 	VkFormat swapchainFormat = getSwapchainFormat(physicalDevice, renderVkState->surface);
 
 	RenderVkSwapchain* swapchain = createSwapchain(physicalDevice, device, renderVkState->surface, renderVkState->graphicsQueueFamily, renderVkState->window, swapchainFormat);
 	renderVkState->swapchain = swapchain;
-
-	renderVkState->presentSemaphoresCount = swapchain->imageCount;
-	renderVkState->presentSemaphores = PushArray(renderVkState->arena, VkSemaphore, swapchain->imageCount);
-	for (uint32_t i = 0; i < swapchain->imageCount; ++i) {
-		renderVkState->presentSemaphores[i] = createSemaphore(device);
-		Assert(renderVkState->presentSemaphores[i]);
-	}
-
-	// Need to do this inside the loop if swapchain is re-created
-	renderVkState->swapchainImageViewsCount = swapchain->imageCount;
-	renderVkState->swapchainImageViews = PushArray(renderVkState->arena, VkImageView, swapchain->imageCount);
-	for (uint32_t i = 0; i < swapchain->imageCount; ++i) {
-		if (renderVkState->swapchainImageViews[i]) {
-			vkDestroyImageView(device, renderVkState->swapchainImageViews[i], nullptr);
-		}
-		renderVkState->swapchainImageViews[i] = createImageView(device, swapchain->images[i], swapchainFormat, 0, 1);
-	}
 }
 
 inline FrameData& currentFrame() {

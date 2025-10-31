@@ -26,13 +26,6 @@ struct RenderVkSwapchain {
 	u32 imageCount;
 };
 
-struct Buffer {
-	VkBuffer buffer;
-	VkDeviceMemory memory;
-	void* data;
-	size_t size;
-};
-
 struct RenderVkImage {
 	VkImage image;
 	VkImageView imageView;
@@ -53,16 +46,6 @@ struct RenderVkState {
 	VkInstance instance;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
-
-	// sync
-	VkSemaphore acquireSemaphores[MAX_FRAMES];
-	VkFence frameFences[MAX_FRAMES];
-
-	VkSemaphore* presentSemaphores;
-	u32 presentSemaphoresCount;
-
-	VkImageView* swapchainImageViews;
-	u32 swapchainImageViewsCount;
 
 	VkQueue graphicsQueue;
 	u32 graphicsQueueFamily;
