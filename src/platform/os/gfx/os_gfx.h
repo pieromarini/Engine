@@ -8,7 +8,7 @@
 
 using OS_WindowFlags = u32;
 enum {
-	OS_WindowFlag_CustomBorder = (1<<0),
+	OS_WindowFlag_CustomBorder = (1 << 0),
 };
 
 using OS_RepaintFunction = void();

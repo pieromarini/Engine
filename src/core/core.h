@@ -3,9 +3,11 @@
 #include <cstdint>
 
 #if defined(_WIN32)
-#define PLATFORM_WINDOWS
-#elif defined(__linux__) || defined(__APPLE__)
-#define PLATFORM_POSIX
+#define PLATFORM_WINDOWS 1
+#elif defined(__linux__)
+#define PLATFORM_LINUX 1
+#elif defined(__APPLE__)
+#define PLATFORM_APPLE 1
 #endif
 
 
@@ -18,19 +20,19 @@
 # define root_global no_name_mangle
 # define root_function no_name_mangle function
 
-#ifdef PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
 # define exported no_name_mangle __declspec(dllexport)
 #else
 # define exported no_name_mangle
 #endif
 
-#ifdef PLATFORM_WINDOWS
+#if PLATFORM_WINDOWS
 # define imported no_name_mangle __declspec(dllimport)
 #else
 # define imported no_name_mangle
 #endif
 
-#if COMPILER_MSVC || (COMPILER_CLANG && defined(PLATFORM_WINDOWS))
+#if COMPILER_MSVC || (COMPILER_CLANG && PLATFORM_WINDOWS)
 # pragma section(".rdata$", read)
 # define read_only __declspec(allocate(".rdata$"))
 #elif (COMPILER_CLANG && OS_LINUX)
@@ -133,7 +135,7 @@ read_only static u64 mantissaF64 = 0xFFFFFFFFFFFFFull;
 #define AlignDownPow2(x, b) ((x) & (~((b) - 1)))
 
 // assertions
-#if defined(PLATFORM_WINDOWS)
+#if PLATFORM_WINDOWS
 #define BreakDebugger() __debugbreak()
 #else
 #define BreakDebugger() (*(volatile int *)0 = 0)

@@ -4,8 +4,11 @@
 #include "core/memory/arena.h"
 #include "platform/os/core/os_core.h"
 
+#if PLATFORM_WINDOWS
 // TODO(piero): move this win32 define
 #define VK_USE_PLATFORM_WIN32_KHR
+#endif
+
 #define VOLK_IMPLEMENTATION
 #include <volk/volk.h>
 
