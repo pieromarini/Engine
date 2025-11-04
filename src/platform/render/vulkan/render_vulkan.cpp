@@ -1,12 +1,12 @@
+#include "render_vulkan.h"
+
 #include "core/config.h"
 #include "core/core.h"
 #include "core/memory/arena.h"
 #include "core/thread_context.h"
 #include "platform/os/gfx/os_gfx_win32.h"
 #include "platform/render/vulkan/render_vulkan_transitions.h"
-#include "vulkan/vulkan_core.h"
 
-#include "render_vulkan.h"
 
 per_thread RenderVkState* renderVkState;
 
@@ -321,7 +321,7 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	return device;
 }
 
-void Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle) {
+VkSurfaceKHR Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle) {
 	Win32Window* window = OS_windowFromHandle(windowHandle);
 
 	VkWin32SurfaceCreateInfoKHR createInfo{};
@@ -331,8 +331,7 @@ void Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle) {
 
 	VkSurfaceKHR surface{};
 	VK_CHECK(vkCreateWin32SurfaceKHR(renderVkState->instance, &createInfo, nullptr, &surface));
-	renderVkState->surface = surface;
-	renderVkState->window = windowHandle;
+	return surface;
 }
 
 VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
@@ -673,12 +672,13 @@ void Render_Vk_equipWindow(OSWindowHandle windowHandle) {
 	VkDevice device = renderVkState->device;
 	VkPhysicalDevice physicalDevice = renderVkState->physicalDevice;
 
-	Render_Vk_createSurfaceWin32(windowHandle);
+	renderVkState->window = windowHandle;
+	renderVkState->surface = Render_Vk_createSurfaceWin32(windowHandle);
 
 	VkBool32 presentSupported = 0;
 	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, renderVkState->graphicsQueueFamily, renderVkState->surface, &presentSupported));
 	if (!presentSupported) {
-		printf("[Render] No surface with present support. Exiting");
+		printf("[Render] No surface with presentation support for Win32. Exiting");
 		OS_abort();
 	}
 

@@ -128,7 +128,7 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint32_t 
 VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint32_t familyIndex);
 
 // Platform-specific surface creation
-void Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle);
+VkSurfaceKHR Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle);
 
 // swapchain
 static VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);

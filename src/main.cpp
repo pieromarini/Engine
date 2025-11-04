@@ -16,6 +16,8 @@ struct State {
 	Arena* arena;
 	Window* firstWindow;
 	Window* lastWindow;
+
+	b32 quit;
 };
 
 per_thread State* state;
@@ -39,8 +41,12 @@ void update() {
 		if (event->kind == OS_EventKind_WindowClose) {
 			OSWindowHandle window = event->window;
 	
+			// TODO(piero): Cleanup shouldn't be done here.
 			OS_destroyWindow(window);
 			OS_consumeEvent(&events, event);
+
+			// TODO(piero): We should only quit the application if we close the main window.
+			state->quit = true;
 		}
 	}
 
@@ -64,7 +70,7 @@ void entryPoint() {
 
 	DLLPushBack(state->firstWindow, state->lastWindow, window);
 
-	while(state->firstWindow) {
+	while(!state->quit) {
 		update();
 	}
 
