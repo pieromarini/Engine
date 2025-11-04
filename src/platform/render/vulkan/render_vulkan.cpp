@@ -467,7 +467,7 @@ SwapchainStatus updateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevic
 	return Swapchain_Resized;
 }
 
-void Render_VK_updateWindowSize(OSWindowHandle windowHandle, vec2 size) {
+void Render_startWindow(OSWindowHandle windowHandle, vec2 size) {
 	u32 lastWidth = renderVkState->swapchain->width;
 	u32 lastHeight = renderVkState->swapchain->height;
 
@@ -479,6 +479,10 @@ void Render_VK_updateWindowSize(OSWindowHandle windowHandle, vec2 size) {
 	vkDeviceWaitIdle(renderVkState->device);
 	VkFormat swapchainFormat = getSwapchainFormat(renderVkState->physicalDevice, renderVkState->surface);
 	updateSwapchain(renderVkState->swapchain, renderVkState->physicalDevice, renderVkState->device, renderVkState->surface, renderVkState->graphicsQueueFamily, windowHandle, swapchainFormat);
+}
+
+void Render_endWindow(OSWindowHandle windowHandle) {
+
 }
 
 VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, u32 mipLevel, u32 levelCount) {
@@ -580,7 +584,7 @@ VkSampler createSampler(VkDevice device, VkFilter filter, VkSamplerMipmapMode mi
 	return sampler;
 }
 
-void Render_Vk_init() {
+void Render_init() {
 	// Init state
 	Arena* arena = arenaAlloc(Gigabytes(16));
 	renderVkState = PushStruct(arena, RenderVkState);
@@ -611,6 +615,7 @@ void Render_Vk_init() {
 		return;
 	}
 
+	// TODO(piero): Remove asserts
 	VkPhysicalDeviceProperties props = {};
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
 	Assert(props.limits.timestampComputeAndGraphics);
@@ -668,7 +673,7 @@ void Render_Vk_initSync() {
 	}
 }
 
-void Render_Vk_equipWindow(OSWindowHandle windowHandle) {
+void Render_equipWindow(OSWindowHandle windowHandle) {
 	VkDevice device = renderVkState->device;
 	VkPhysicalDevice physicalDevice = renderVkState->physicalDevice;
 
@@ -692,7 +697,7 @@ inline FrameData& currentFrame() {
 	return renderVkState->frames[renderVkState->frameNumber % MAX_FRAMES];
 }
 
-void Render_Vk_update() {
+void Render_update() {
 	VK_CHECK(vkWaitForFences(renderVkState->device, 1, &currentFrame().renderFence, true, 1000000000));
 	VK_CHECK(vkResetFences(renderVkState->device, 1, &currentFrame().renderFence));
 

@@ -136,11 +136,6 @@ VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfac
 RenderVkSwapchain* createSwapchain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format, VkSwapchainKHR oldSwapchain = nullptr);
 void destroySwapchain(VkDevice device, RenderVkSwapchain* swapchain);
 SwapchainStatus updateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format);
-void Render_VK_updateWindowSize(OSWindowHandle windowHandle, vec2 size);
 
-void Render_Vk_init();
 void Render_Vk_initCommands();
 void Render_Vk_initSync();
-void Render_Vk_update();
-
-void Render_Vk_equipWindow(OSWindowHandle windowHandle);

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "platform/os/core/os_core.h"
 
 void Render_init();
