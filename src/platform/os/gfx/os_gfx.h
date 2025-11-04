@@ -22,6 +22,7 @@ void OS_windowMinimize(OSWindowHandle handle);
 void OS_windowMaximize(OSWindowHandle handle);
 void OS_windowRestore(OSWindowHandle handle);
 bool OS_windowIsFocused(OSWindowHandle handle);
+bool OS_windowIsMinimized(OSWindowHandle handle);
 bool OS_windowIsFullscreen(OSWindowHandle handle);
 
 void OS_windowFirstPaint(OSWindowHandle handle);

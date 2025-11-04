@@ -6,6 +6,7 @@
 #include "core/thread_context.h"
 #include "platform/os/gfx/os_gfx_win32.h"
 #include "platform/render/vulkan/render_vulkan_transitions.h"
+#include "vulkan/vulkan_core.h"
 
 
 per_thread RenderVkState* renderVkState;
@@ -358,7 +359,7 @@ VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfac
 	return format;
 }
 
-static VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
+VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
 #if VSYNC
 	return VK_PRESENT_MODE_FIFO_KHR;
 #else
@@ -445,7 +446,7 @@ void destroySwapchain(VkDevice device, RenderVkSwapchain* swapchain) {
 	vkDestroySwapchainKHR(device, swapchain->swapchain, nullptr);
 }
 
-SwapchainStatus updateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format) {
+SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format) {
 	Rect2D rect = OS_clientRectFromWindow(windowHandle);
 	vec2 size = rect2DSize(rect);
 	i32 width = (i32)size.x;
@@ -467,7 +468,7 @@ SwapchainStatus updateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevic
 	return Swapchain_Resized;
 }
 
-void Render_startWindow(OSWindowHandle windowHandle, vec2 size) {
+void recreateSwapchainIfNeeded(OSWindowHandle windowHandle, vec2 size) {
 	u32 lastWidth = renderVkState->swapchain->width;
 	u32 lastHeight = renderVkState->swapchain->height;
 
@@ -476,9 +477,15 @@ void Render_startWindow(OSWindowHandle windowHandle, vec2 size) {
 		return;
 	}
 
-	vkDeviceWaitIdle(renderVkState->device);
 	VkFormat swapchainFormat = getSwapchainFormat(renderVkState->physicalDevice, renderVkState->surface);
-	updateSwapchain(renderVkState->swapchain, renderVkState->physicalDevice, renderVkState->device, renderVkState->surface, renderVkState->graphicsQueueFamily, windowHandle, swapchainFormat);
+	recreateSwapchain(renderVkState->swapchain, renderVkState->physicalDevice, renderVkState->device, renderVkState->surface, renderVkState->graphicsQueueFamily, windowHandle, swapchainFormat);
+}
+
+void Render_startWindow(OSWindowHandle windowHandle, vec2 size) {
+	if (renderVkState->swapchain->needsResize) {
+		recreateSwapchainIfNeeded(windowHandle, size);
+		renderVkState->swapchain->needsResize = false;
+	}
 }
 
 void Render_endWindow(OSWindowHandle windowHandle) {
@@ -699,10 +706,15 @@ inline FrameData& currentFrame() {
 
 void Render_update() {
 	VK_CHECK(vkWaitForFences(renderVkState->device, 1, &currentFrame().renderFence, true, 1000000000));
-	VK_CHECK(vkResetFences(renderVkState->device, 1, &currentFrame().renderFence));
 
 	u32 swapchainImageIndex{};
-	VK_CHECK(vkAcquireNextImageKHR(renderVkState->device, renderVkState->swapchain->swapchain, 1000000000, currentFrame().swapchainSemaphore, nullptr, &swapchainImageIndex));
+	VkResult e = vkAcquireNextImageKHR(renderVkState->device, renderVkState->swapchain->swapchain, 1000000000, currentFrame().swapchainSemaphore, nullptr, &swapchainImageIndex);
+	if (e == VK_ERROR_OUT_OF_DATE_KHR) {
+		renderVkState->swapchain->needsResize = true;
+		return;
+	}
+
+	VK_CHECK(vkResetFences(renderVkState->device, 1, &currentFrame().renderFence));
 
 	VkCommandBuffer cmd = currentFrame().commandBuffer;
 	VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -784,7 +796,10 @@ void Render_update() {
 
 	presentInfo.pImageIndices = &swapchainImageIndex;
 
-	VK_CHECK(vkQueuePresentKHR(renderVkState->graphicsQueue, &presentInfo));
+	VkResult presentResult = vkQueuePresentKHR(renderVkState->graphicsQueue, &presentInfo);
+	if (presentResult == VK_ERROR_OUT_OF_DATE_KHR) {
+		renderVkState->swapchain->needsResize = true;
+	}
 
 	renderVkState->frameNumber++;
 }

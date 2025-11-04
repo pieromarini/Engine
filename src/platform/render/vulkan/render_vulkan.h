@@ -24,6 +24,7 @@ struct RenderVkSwapchain {
 	u32 height;
 	VkImage* images;
 	u32 imageCount;
+	b32 needsResize;
 };
 
 struct RenderVkImage {
@@ -131,11 +132,14 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 VkSurfaceKHR Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle);
 
 // swapchain
-static VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
+VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 RenderVkSwapchain* createSwapchain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format, VkSwapchainKHR oldSwapchain = nullptr);
 void destroySwapchain(VkDevice device, RenderVkSwapchain* swapchain);
-SwapchainStatus updateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format);
+SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format);
+
+// Compares the passed in size with the stored state window's size to see if a swapchain recreation is necessary
+void recreateSwapchainIfNeeded(OSWindowHandle windowHandle, vec2 size);
 
 void Render_Vk_initCommands();
 void Render_Vk_initSync();

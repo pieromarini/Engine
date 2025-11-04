@@ -31,6 +31,10 @@ void update() {
 		vec2 size = rect2DSize(rect);
 		Render_startWindow(window->handle, size);
 
+		if (OS_windowIsMinimized(window->handle)) {
+			continue;
+		}
+
 		Render_update();
 
 		Render_endWindow(window->handle);

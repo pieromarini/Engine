@@ -498,10 +498,12 @@ void OS_windowMinimize(OSWindowHandle handle) {
 	Win32Window* window = OS_windowFromHandle(handle);
 	ShowWindow(window->hwnd, SW_MINIMIZE);
 }
+
 void OS_windowMaximize(OSWindowHandle handle) {
 	Win32Window* window = OS_windowFromHandle(handle);
 	ShowWindow(window->hwnd, SW_MAXIMIZE);
 }
+
 void OS_windowRestore(OSWindowHandle handle) {
 	Win32Window* window = OS_windowFromHandle(handle);
 	ShowWindow(window->hwnd, SW_RESTORE);
@@ -513,6 +515,17 @@ bool OS_windowIsFocused(OSWindowHandle handle) {
 	if (window) {
 		result = GetForegroundWindow() == window->hwnd;
 	}
+	return result;
+}
+
+bool OS_windowIsMinimized(OSWindowHandle handle) {
+	bool result = false;
+	Win32Window* window = OS_windowFromHandle(handle);
+
+	if (window) {
+		result = !!IsIconic(window->hwnd);
+	}
+
 	return result;
 }
 
