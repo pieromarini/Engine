@@ -55,6 +55,9 @@ struct RenderVkState {
 	OSWindowHandle window;
 	RenderVkSwapchain* swapchain;
 
+	RenderVkImage* drawImage;
+	VkExtent2D drawExtent;
+
 	Arena* frameArena;
 	FrameData frames[MAX_FRAMES];
 	u32 frameNumber;
@@ -129,7 +132,7 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint32_t 
 VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint32_t familyIndex);
 
 // Platform-specific surface creation
-VkSurfaceKHR Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle);
+VkSurfaceKHR createSurfaceWin32(OSWindowHandle windowHandle);
 
 // swapchain
 VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);

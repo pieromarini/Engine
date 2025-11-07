@@ -322,7 +322,7 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	return device;
 }
 
-VkSurfaceKHR Render_Vk_createSurfaceWin32(OSWindowHandle windowHandle) {
+VkSurfaceKHR createSurfaceWin32(OSWindowHandle windowHandle) {
 	Win32Window* window = OS_windowFromHandle(windowHandle);
 
 	VkWin32SurfaceCreateInfoKHR createInfo{};
@@ -463,6 +463,22 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 
 	VK_CHECK(vkDeviceWaitIdle(device));
 
+	// Create new render target
+	// TODO: extract this out. Swapchain recreation shouldn't be tied to render-target recreation.
+	destroyImage(renderVkState->device, renderVkState->drawImage);
+
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+	VkImageUsageFlags drawImageUsages{};
+	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	renderVkState->drawImage = createImage(device, memoryProperties, width, height, 1, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages);
+	renderVkState->drawExtent = { .width = (u32)width, .height = (u32)height };
+
 	destroySwapchain(device, oldSwapchain);
 
 	return Swapchain_Resized;
@@ -539,6 +555,7 @@ RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& me
 	VkMemoryRequirements memoryRequirements;
 	vkGetImageMemoryRequirements(device, image, &memoryRequirements);
 
+	// Create image on GPU local memory
 	uint32_t memoryTypeIndex = selectMemoryType(memoryProperties, memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	Assert(memoryTypeIndex != ~0u);
 
@@ -685,7 +702,7 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 	VkPhysicalDevice physicalDevice = renderVkState->physicalDevice;
 
 	renderVkState->window = windowHandle;
-	renderVkState->surface = Render_Vk_createSurfaceWin32(windowHandle);
+	renderVkState->surface = createSurfaceWin32(windowHandle);
 
 	VkBool32 presentSupported = 0;
 	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, renderVkState->graphicsQueueFamily, renderVkState->surface, &presentSupported));
@@ -698,6 +715,24 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 
 	RenderVkSwapchain* swapchain = createSwapchain(physicalDevice, device, renderVkState->surface, renderVkState->graphicsQueueFamily, renderVkState->window, swapchainFormat);
 	renderVkState->swapchain = swapchain;
+
+	// Create render target
+	Rect2D rect = OS_clientRectFromWindow(windowHandle);
+	vec2 size = rect2DSize(rect);
+	u32 width = (u32)size.x;
+	u32 height = (u32)size.y;
+
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+	VkImageUsageFlags drawImageUsages{};
+	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	renderVkState->drawImage = createImage(device, memoryProperties, width, height, 1, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages);
+	renderVkState->drawExtent = { .width = width, .height = height };
 }
 
 inline FrameData& currentFrame() {
@@ -729,7 +764,7 @@ void Render_update() {
 	// Record commands
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-	transitionImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
 	VkClearColorValue clearValue = { { 0.0f, 0.0f, 1.0f, 1.0f } };
 
@@ -740,9 +775,14 @@ void Render_update() {
 	clearRange.baseArrayLayer = 0;
 	clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-	vkCmdClearColorImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+	vkCmdClearColorImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
-	transitionImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	transitionImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	copyImageToImage(cmd, renderVkState->drawImage->image, renderVkState->swapchain->images[swapchainImageIndex], renderVkState->drawExtent, renderVkState->drawExtent);
+
+	transitionImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 	VK_CHECK(vkEndCommandBuffer(cmd));
 

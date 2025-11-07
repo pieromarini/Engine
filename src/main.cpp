@@ -47,6 +47,7 @@ void update() {
 	
 			// TODO(piero): Cleanup shouldn't be done here.
 			OS_destroyWindow(window);
+
 			OS_consumeEvent(&events, event);
 
 			// TODO(piero): We should only quit the application if we close the main window.
