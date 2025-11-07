@@ -6,6 +6,7 @@
 #include "core/thread_context.h"
 #include "platform/os/gfx/os_gfx_win32.h"
 #include "platform/render/vulkan/render_vulkan_transitions.h"
+#include "platform/render/vulkan/render_vulkan_shaders.h"
 #include "vulkan/vulkan_core.h"
 
 
@@ -481,6 +482,24 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 
 	destroySwapchain(device, oldSwapchain);
 
+	// Update descriptor set using drawImage
+	VkDescriptorImageInfo imgInfo{
+		.sampler = nullptr,
+		.imageView = renderVkState->drawImage->imageView,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+	};
+
+	VkWriteDescriptorSet setWrite{
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.pNext = nullptr,
+		.dstSet = renderVkState->computeSet,
+		.dstBinding = 0,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.pImageInfo = &imgInfo
+	};
+	vkUpdateDescriptorSets(renderVkState->device, 1, &setWrite, 0, nullptr);
+
 	return Swapchain_Resized;
 }
 
@@ -608,6 +627,55 @@ VkSampler createSampler(VkDevice device, VkFilter filter, VkSamplerMipmapMode mi
 	return sampler;
 }
 
+// Descriptors
+VkDescriptorSetLayout buildDescriptorLayout(VkDescriptorSetLayoutBinding* bindings, u32 numBindings, VkDescriptorSetLayoutCreateFlags flags) {
+	VkDescriptorSetLayout result{};
+
+	VkDescriptorSetLayoutCreateInfo info{
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = flags,
+		.bindingCount = numBindings,
+		.pBindings = bindings,
+	};
+
+	VK_CHECK(vkCreateDescriptorSetLayout(renderVkState->device, &info, nullptr, &result));
+
+	return result;
+}
+
+VkDescriptorPool buildDescriptorPool(u32 maxSets, VkDescriptorPoolSize* poolSizes, u32 poolSizesCount) {
+	VkDescriptorPool result{};
+
+	VkDescriptorPoolCreateInfo info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.maxSets = maxSets,
+		.poolSizeCount = poolSizesCount,
+		.pPoolSizes = poolSizes
+	};
+	vkCreateDescriptorPool(renderVkState->device, &info, nullptr, &result);
+
+	return result;
+}
+
+VkDescriptorSet buildDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout) {
+	VkDescriptorSet result{};
+
+	VkDescriptorSetAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.descriptorPool = pool,
+		.descriptorSetCount = 1,
+		.pSetLayouts = &layout
+	};
+
+	VK_CHECK(vkAllocateDescriptorSets(renderVkState->device, &allocInfo, &result));
+
+	return result;
+}
+
 void Render_init() {
 	// Init state
 	Arena* arena = arenaAlloc(Gigabytes(16));
@@ -663,11 +731,13 @@ void Render_init() {
 	renderVkState->graphicsQueueFamily = familyIndex;
 	renderVkState->graphicsQueue = queue;
 
-	Render_Vk_initCommands();
-	Render_Vk_initSync();
+	initCommands();
+	initSync();
+	initDescriptors();
+	initPipelines();
 }
 
-void Render_Vk_initCommands() {
+void initCommands() {
 	VkCommandPoolCreateInfo commandPoolInfo =  {};
 	commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	commandPoolInfo.pNext = nullptr;
@@ -689,12 +759,72 @@ void Render_Vk_initCommands() {
 	}
 }
 
-void Render_Vk_initSync() {
+void initSync() {
 	for (int i = 0; i < MAX_FRAMES; i++) {
 		renderVkState->frames[i].renderFence = createFence(renderVkState->device, VK_FENCE_CREATE_SIGNALED_BIT);
 		renderVkState->frames[i].renderSemaphore = createSemaphore(renderVkState->device);
 		renderVkState->frames[i].swapchainSemaphore = createSemaphore(renderVkState->device);
 	}
+}
+
+void initDescriptors() {
+	Temp scratch = ScratchBegin();
+
+	u32 maxSets = 10;
+	u32 poolSizesCount = 1;
+	VkDescriptorPoolSize* poolSizes = PushArray(scratch.arena, VkDescriptorPoolSize, poolSizesCount);
+	poolSizes[0] = {
+    .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+    .descriptorCount = 1 * maxSets
+	};
+	renderVkState->descriptorPool = buildDescriptorPool(maxSets, poolSizes, poolSizesCount);
+
+	u32 bindingsCount = 1;
+	VkDescriptorSetLayoutBinding* bindings = PushArray(scratch.arena, VkDescriptorSetLayoutBinding, bindingsCount);
+	bindings[0] = {
+		.binding = 0,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.pImmutableSamplers = nullptr
+	};
+	renderVkState->computeLayout = buildDescriptorLayout(bindings, bindingsCount, 0);
+
+	renderVkState->computeSet = buildDescriptorSet(renderVkState->descriptorPool, renderVkState->computeLayout);
+
+	ScratchEnd(scratch);
+}
+
+void initPipelines() {
+	VkPipelineLayoutCreateInfo computeLayout{};
+	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	computeLayout.pNext = nullptr;
+	computeLayout.pSetLayouts = &renderVkState->computeLayout;
+	computeLayout.setLayoutCount = 1;
+
+	VK_CHECK(vkCreatePipelineLayout(renderVkState->device, &computeLayout, nullptr, &renderVkState->computePipelineLayout));
+
+	VkShaderModule computeDrawShader = nullptr;
+	if (!loadShaderModule("../res/shaders/gradient.comp.spv", renderVkState->device, &computeDrawShader)) {
+		printf("Error when building the compute shader \n");
+	}
+
+	VkPipelineShaderStageCreateInfo stageinfo{};
+	stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	stageinfo.pNext = nullptr;
+	stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	stageinfo.module = computeDrawShader;
+	stageinfo.pName = "main";
+
+	VkComputePipelineCreateInfo computePipelineCreateInfo{};
+	computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	computePipelineCreateInfo.pNext = nullptr;
+	computePipelineCreateInfo.layout = renderVkState->computePipelineLayout;
+	computePipelineCreateInfo.stage = stageinfo;
+	
+	VK_CHECK(vkCreateComputePipelines(renderVkState->device, VK_NULL_HANDLE,1 , &computePipelineCreateInfo, nullptr, &renderVkState->computePipeline));
+
+	vkDestroyShaderModule(renderVkState->device, computeDrawShader, nullptr);
 }
 
 void Render_equipWindow(OSWindowHandle windowHandle) {
@@ -733,6 +863,24 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 
 	renderVkState->drawImage = createImage(device, memoryProperties, width, height, 1, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages);
 	renderVkState->drawExtent = { .width = width, .height = height };
+
+	// Write to descriptor set
+	VkDescriptorImageInfo imgInfo{
+		.sampler = nullptr,
+		.imageView = renderVkState->drawImage->imageView,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+	};
+
+	VkWriteDescriptorSet setWrite{
+		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.pNext = nullptr,
+		.dstSet = renderVkState->computeSet,
+		.dstBinding = 0,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.pImageInfo = &imgInfo
+	};
+	vkUpdateDescriptorSets(renderVkState->device, 1, &setWrite, 0, nullptr);
 }
 
 inline FrameData& currentFrame() {
@@ -775,7 +923,10 @@ void Render_update() {
 	clearRange.baseArrayLayer = 0;
 	clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-	vkCmdClearColorImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, renderVkState->computePipeline);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, renderVkState->computePipelineLayout, 0, 1, &renderVkState->computeSet, 0, nullptr);
+
+	vkCmdDispatch(cmd, Ceil(renderVkState->drawExtent.width / 16.0), Ceil(renderVkState->drawExtent.height / 16.0), 1);
 
 	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	transitionImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);

@@ -4,7 +4,6 @@
 #include <windowsx.h>
 #include <Uxtheme.h>
 
-
 #include "core/core.h"
 #include "core/math/region.h"
 #include "core/memory/arena.h"

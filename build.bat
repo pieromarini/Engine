@@ -7,7 +7,7 @@ rem Record start time
 set "start=%TIME%"
 
 for %%a in (%*) do set "%%a=1"
-if not "%msvc%"=="1" if not "%clang%"=="1" set msvc=1
+
 if not "%release%"=="1" set debug=1
 
 if "%debug%"=="1"   set release=0 && echo [Debug Mode]
@@ -24,12 +24,38 @@ set clang_common=  -I..\src\ -I..\third_party\ -I..\local\ -std=c++20 -gcodeview
 
 rem Check for Vulkan SDK
 if defined VULKAN_SDK (
-    echo [Using Vulkan SDK from %VULKAN_SDK%]
-    set "VULKAN_SDK=%VULKAN_SDK:"=%"
-    set "cl_common=%cl_common% /I%VULKAN_SDK%\Include"
-    set "clang_common=%clang_common% -I%VULKAN_SDK%/Include"
+	echo [Using Vulkan SDK from %VULKAN_SDK%]
+	set "VULKAN_SDK=%VULKAN_SDK:"=%"
+	set "cl_common=%cl_common% /I%VULKAN_SDK%\Include"
+	set "clang_common=%clang_common% -I%VULKAN_SDK%/Include"
 ) else (
-    echo [WARNING] VULKAN_SDK environment variable not set.
+	echo [WARNING] VULKAN_SDK environment variable not set.
+)
+
+rem Compile GLSL shaders into SPIR-V
+if "%shaders%"=="1" (
+	set "GLSLC=!VULKAN_SDK!\Bin\glslc.exe"
+
+	if exist "!GLSLC!" (
+		echo [Compiling GLSL shaders to SPIR-V...]
+		for %%F in (res\shaders\*.vert res\shaders\*.frag res\shaders\*.comp) do (
+			if exist "%%F" (
+				set "OUTFILE=res\shaders\%%~nF%%~xF.spv"
+				echo   %%~xF ^>^> !OUTFILE!
+				"!GLSLC!" "%%F" -o "!OUTFILE!" || (
+					echo [ERROR] Shader compile failed: %%F
+					exit /b 1
+				)
+			)
+		)
+	) else (
+		echo [WARNING] glslc not found at "!GLSLC!". Skipping shader compilation.
+	)
+)
+
+rem Don't move forward if no compiler selected
+if not "%msvc%"=="1" if not "%clang%"=="1" (
+	exit /b 0
 )
 
 set cl_debug=      call cl /Od /DDEBUG=1 %cl_common% %auto_compile_flags%
@@ -78,8 +104,8 @@ rem Record end time
 set "end=%TIME%"
 
 if "%didbuild%"=="" (
-  echo [WARNING] No valid build target specified.
-  exit /b 1
+	echo [WARNING] No valid build target specified.
+	exit /b 1
 )
 
 :: cleanup
@@ -96,9 +122,9 @@ call :timeToMilliseconds "%end%" endMS
 
 rem Handle case when build spans midnight
 if !endMS! LSS !startMS! (
-    set /a durationMS=!endMS! + 86400000 - !startMS!
+	set /a durationMS=!endMS! + 86400000 - !startMS!
 ) else (
-    set /a durationMS=!endMS! - !startMS!
+	set /a durationMS=!endMS! - !startMS!
 )
 
 rem Split into seconds and milliseconds
@@ -113,10 +139,10 @@ rem %1 = time string, %2 = output variable
 setlocal
 set "timestr=%~1"
 for /f "tokens=1-4 delims=:.," %%a in ("%timestr%") do (
-    set /a "hh=1%%a - 100"
-    set /a "mm=1%%b - 100"
-    set /a "ss=1%%c - 100"
-    set /a "cs=1%%d - 100"
+	set /a "hh=1%%a - 100"
+	set /a "mm=1%%b - 100"
+	set /a "ss=1%%c - 100"
+	set /a "cs=1%%d - 100"
 )
 rem cs = centiseconds; convert to milliseconds (multiply by 10)
 set /a totalMS=(hh * 3600 + mm * 60 + ss) * 1000 + (cs * 10)

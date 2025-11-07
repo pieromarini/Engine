@@ -58,6 +58,15 @@ struct RenderVkState {
 	RenderVkImage* drawImage;
 	VkExtent2D drawExtent;
 
+	// Descriptors
+	VkDescriptorPool descriptorPool;
+	VkDescriptorSetLayout computeLayout;
+	VkDescriptorSet computeSet;
+
+	// Pipelines
+	VkPipeline computePipeline;
+	VkPipelineLayout computePipelineLayout;
+
 	Arena* frameArena;
 	FrameData frames[MAX_FRAMES];
 	u32 frameNumber;
@@ -124,13 +133,6 @@ static bool isLayerSupported(const char* name);
 bool isInstanceExtensionSupported(const char* name);
 String8List getSwapchainExtensions(Arena* arena);
 
-VkInstance createInstance();
-VkDebugReportCallbackEXT registerDebugCallback(VkInstance instance);
-uint32_t getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice);
-static bool supportsPresentation(VkPhysicalDevice physicalDevice, uint32_t familyIndex);
-VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint32_t physicalDeviceCount);
-VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint32_t familyIndex);
-
 // Platform-specific surface creation
 VkSurfaceKHR createSurfaceWin32(OSWindowHandle windowHandle);
 
@@ -144,5 +146,19 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 // Compares the passed in size with the stored state window's size to see if a swapchain recreation is necessary
 void recreateSwapchainIfNeeded(OSWindowHandle windowHandle, vec2 size);
 
-void Render_Vk_initCommands();
-void Render_Vk_initSync();
+// init helpers
+void initCommands();
+void initSync();
+void initDescriptors();
+void initPipelines();
+VkInstance createInstance();
+VkDebugReportCallbackEXT registerDebugCallback(VkInstance instance);
+uint32_t getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice);
+static bool supportsPresentation(VkPhysicalDevice physicalDevice, uint32_t familyIndex);
+VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint32_t physicalDeviceCount);
+VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint32_t familyIndex);
+
+// Descriptors
+VkDescriptorSetLayout buildDescriptorLayout(VkDescriptorSetLayoutBinding* bindings, u32 numBindings, VkDescriptorSetLayoutCreateFlags flags);
+VkDescriptorPool buildDescriptorPool(u32 maxSets, VkDescriptorPoolSize* poolSizes, u32 poolSizesCount);
+VkDescriptorSet buildDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout);
