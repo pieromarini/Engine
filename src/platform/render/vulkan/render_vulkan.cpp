@@ -2,6 +2,7 @@
 
 #include "core/config.h"
 #include "core/core.h"
+#include "core/math/matrix.h"
 #include "core/memory/arena.h"
 #include "core/thread_context.h"
 #include "platform/os/gfx/os_gfx_win32.h"
@@ -11,6 +12,53 @@
 
 
 per_thread RenderVkState* renderVkState;
+
+static Vertex cubeVertices[] = {
+	// Front face
+	{{-0.5f, -0.5f,  0.5f}, 0.0f, { 0.0f,  0.0f,  1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
+	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
+	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
+
+	// Back face
+	{{ 0.5f, -0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
+	{{-0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {0.0f, 1.0f, 1.0f, 1.0f}},
+	{{-0.5f,  0.5f, -0.5f}, 1.0f, { 0.0f,  0.0f, -1.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
+	{{ 0.5f,  0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 1.0f, {0.3f, 0.3f, 0.3f, 1.0f}},
+
+	// Left face
+	{{-0.5f, -0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{-0.5f, -0.5f,  0.5f}, 1.0f, {-1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
+	{{-0.5f,  0.5f,  0.5f}, 1.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
+	{{-0.5f,  0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
+
+	// Right face
+	{{ 0.5f, -0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
+	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 1.0f, 1.0f}},
+	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
+	{{ 0.5f,  0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {0.3f, 0.3f, 0.3f, 1.0f}},
+
+	// Top face
+	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
+	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
+	{{-0.5f,  0.5f, -0.5f}, 0.0f, { 0.0f,  1.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
+
+	// Bottom face
+	{{-0.5f, -0.5f, -0.5f}, 0.0f, { 0.0f, -1.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
+	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 1.0f, 1.0f}},
+	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
+	{{-0.5f, -0.5f,  0.5f}, 0.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {0.3f, 0.3f, 0.3f, 1.0f}},
+};
+
+static u32 cubeIndices[] = {
+	0, 1, 2, 2, 3, 0,
+	4, 5, 6, 6, 7, 4,
+	8, 9,10,10,11, 8,
+	12,13,14,14,15,12,
+	16,17,18,18,19,16,
+	20,21,22,22,23,20
+};
 
 void immediateSubmit(void (*fn)(VkCommandBuffer cmd)) {
 	VK_CHECK(vkResetFences(renderVkState->device, 1, &renderVkState->immFence));
@@ -642,6 +690,96 @@ void destroyImage(VkDevice device, RenderVkImage* image) {
 	vkFreeMemory(device, image->memory, nullptr);
 }
 
+RenderVkBuffer createBuffer(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u32 size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryFlags) {
+	RenderVkBuffer result{};
+
+	VkBufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	createInfo.size = size;
+	createInfo.usage = usage;
+
+	VkBuffer buffer{};
+	VK_CHECK(vkCreateBuffer(device, &createInfo, nullptr, &buffer));
+
+	VkMemoryRequirements memoryRequirements;
+	vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
+
+	uint32_t memoryTypeIndex = selectMemoryType(memoryProperties, memoryRequirements.memoryTypeBits, memoryFlags);
+	Assert(memoryTypeIndex != ~0u);
+
+	VkMemoryAllocateInfo allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	allocateInfo.allocationSize = memoryRequirements.size;
+	allocateInfo.memoryTypeIndex = memoryTypeIndex;
+
+	VkMemoryAllocateFlagsInfo flagInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO };
+
+	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) {
+		allocateInfo.pNext = &flagInfo;
+		flagInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		flagInfo.deviceMask = 1;
+	}
+
+	VkDeviceMemory memory{};
+	VK_CHECK(vkAllocateMemory(device, &allocateInfo, nullptr, &memory));
+
+	VK_CHECK(vkBindBufferMemory(device, buffer, memory, 0));
+
+	void* data{};
+	if (memoryFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+		VK_CHECK(vkMapMemory(device, memory, 0, size, 0, &data));
+	}
+
+	result.buffer = buffer;
+	result.memory = memory;
+	result.data = data;
+	result.size = size;
+
+	return result;
+}
+
+void uploadBuffer(VkDevice device, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue queue, const RenderVkBuffer& buffer, const RenderVkBuffer& scratch, void* data, u32 size) {
+	// TODO(piero): This submits the Command Buffer and waits for device idle. Not optimal.
+	Assert(size > 0);
+	Assert(scratch.data);
+	Assert(scratch.size >= size);
+
+	memcpy(scratch.data, data, size);
+
+	VK_CHECK(vkResetCommandPool(device, commandPool, 0));
+
+	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+	VkBufferCopy region = { 0, 0, VkDeviceSize(size) };
+	vkCmdCopyBuffer(commandBuffer, scratch.buffer, buffer.buffer, 1, &region);
+
+	VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	VK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+
+	VK_CHECK(vkDeviceWaitIdle(device));
+}
+
+void destroyBuffer(VkDevice device, const RenderVkBuffer& buffer) {
+	vkDestroyBuffer(device, buffer.buffer, nullptr);
+	vkFreeMemory(device, buffer.memory, nullptr);
+}
+
+VkDeviceAddress getBufferAddress(VkDevice device, const RenderVkBuffer& buffer) {
+	VkBufferDeviceAddressInfo info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+	info.buffer = buffer.buffer;
+
+	VkDeviceAddress address = vkGetBufferDeviceAddress(device, &info);
+	Assert(address != 0);
+
+	return address;
+}
+
 VkSampler createSampler(VkDevice device, VkFilter filter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressMode, VkSamplerReductionModeEXT reductionMode) {
 	VkSamplerCreateInfo createInfo = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 
@@ -675,10 +813,10 @@ VkDescriptorSetLayout buildDescriptorLayout(VkDescriptorSetLayoutBinding* bindin
 
 	VkDescriptorSetLayoutCreateInfo info{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = flags,
-		.bindingCount = numBindings,
-		.pBindings = bindings,
+			.pNext = nullptr,
+			.flags = flags,
+			.bindingCount = numBindings,
+			.pBindings = bindings,
 	};
 
 	VK_CHECK(vkCreateDescriptorSetLayout(renderVkState->device, &info, nullptr, &result));
@@ -691,11 +829,11 @@ VkDescriptorPool buildDescriptorPool(u32 maxSets, VkDescriptorPoolSize* poolSize
 
 	VkDescriptorPoolCreateInfo info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.maxSets = maxSets,
-		.poolSizeCount = poolSizesCount,
-		.pPoolSizes = poolSizes
+			.pNext = nullptr,
+			.flags = 0,
+			.maxSets = maxSets,
+			.poolSizeCount = poolSizesCount,
+			.pPoolSizes = poolSizes
 	};
 	vkCreateDescriptorPool(renderVkState->device, &info, nullptr, &result);
 
@@ -725,53 +863,53 @@ VkPipeline buildPipeline(VkDevice device, VkPipelineLayout pipelineLayout, VkPip
 	Temp scratch = ScratchBegin();
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment {
-    .blendEnable = VK_FALSE,
-    .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+		.blendEnable = VK_FALSE,
+			.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = topology,
-		.primitiveRestartEnable = VK_FALSE
+			.topology = topology,
+			.primitiveRestartEnable = VK_FALSE
 	};
 	VkPipelineRasterizationStateCreateInfo rasterizer{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.polygonMode = mode,
-		.cullMode = cullMode,
-		.frontFace = frontFace,
-		.lineWidth = 1.0f,
+			.polygonMode = mode,
+			.cullMode = cullMode,
+			.frontFace = frontFace,
+			.lineWidth = 1.0f,
 	};
 	VkPipelineMultisampleStateCreateInfo multisampling{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-    .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-    .sampleShadingEnable = VK_FALSE,
-    .minSampleShading = 1.0f,
-    .pSampleMask = nullptr,
-    .alphaToCoverageEnable = VK_FALSE,
-    .alphaToOneEnable = VK_FALSE,
+			.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+			.sampleShadingEnable = VK_FALSE,
+			.minSampleShading = 1.0f,
+			.pSampleMask = nullptr,
+			.alphaToCoverageEnable = VK_FALSE,
+			.alphaToOneEnable = VK_FALSE,
 	};
 	VkPipelineDepthStencilStateCreateInfo depthStencil{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-    .depthTestEnable = VK_FALSE,
-    .depthWriteEnable = VK_FALSE,
-    .depthCompareOp = VK_COMPARE_OP_NEVER,
-    .depthBoundsTestEnable = VK_FALSE,
-    .stencilTestEnable = VK_FALSE,
-    .front = {},
-    .back = {},
-    .minDepthBounds = 0.f,
-    .maxDepthBounds = 1.f
+			.depthTestEnable = VK_FALSE,
+			.depthWriteEnable = VK_FALSE,
+			.depthCompareOp = VK_COMPARE_OP_NEVER,
+			.depthBoundsTestEnable = VK_FALSE,
+			.stencilTestEnable = VK_FALSE,
+			.front = {},
+			.back = {},
+			.minDepthBounds = 0.f,
+			.maxDepthBounds = 1.f
 	};
 	VkPipelineRenderingCreateInfo renderInfo{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-		.colorAttachmentCount = 1,
-		.pColorAttachmentFormats = &colorAttachmentFormat,
-		.depthAttachmentFormat = depthAttachmentFormat
+			.colorAttachmentCount = 1,
+			.pColorAttachmentFormats = &colorAttachmentFormat,
+			.depthAttachmentFormat = depthAttachmentFormat
 	};
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
 	};
-	
+
 
 	VkPipelineViewportStateCreateInfo viewportState = {};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -883,6 +1021,11 @@ void Render_init() {
 	initCommands();
 	initSync();
 	initDescriptors();
+
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+	renderVkState->scratchBuffer = createBuffer(renderVkState->device, memoryProperties, Megabytes(128), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 }
 
 void initCommands() {
@@ -935,8 +1078,8 @@ void initDescriptors() {
 	u32 poolSizesCount = 1;
 	VkDescriptorPoolSize* poolSizes = PushArray(scratch.arena, VkDescriptorPoolSize, poolSizesCount);
 	poolSizes[0] = {
-    .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-    .descriptorCount = 1 * maxSets
+		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorCount = 1 * maxSets
 	};
 	renderVkState->descriptorPool = buildDescriptorPool(maxSets, poolSizes, poolSizesCount);
 
@@ -978,40 +1121,46 @@ void initPipelines() {
 	computePipelineCreateInfo.pNext = nullptr;
 	computePipelineCreateInfo.layout = renderVkState->computePipelineLayout;
 	computePipelineCreateInfo.stage = stageinfo;
-	
+
 	VK_CHECK(vkCreateComputePipelines(renderVkState->device, VK_NULL_HANDLE,1 , &computePipelineCreateInfo, nullptr, &renderVkState->computePipeline));
 
 	vkDestroyShaderModule(renderVkState->device, computeDrawShader, nullptr);
 
 	// Triangle pipeline
-	VkShaderModule triangleVertexShader = nullptr;
-	if (!loadShaderModule("../res/shaders/triangle.vert.spv", renderVkState->device, &triangleVertexShader)) {
-		printf("Error when building the triangle vertex shader");
+	VkShaderModule meshVertexShader = nullptr;
+	if (!loadShaderModule("../res/shaders/triangle.vert.spv", renderVkState->device, &meshVertexShader)) {
+		printf("Error when building the mesh vertex shader");
 	}
-	VkShaderModule triangleFragmentShader = nullptr;
-	if (!loadShaderModule("../res/shaders/triangle.frag.spv", renderVkState->device, &triangleFragmentShader)) {
-		printf("Error when building the triangle fragment shader");
+	VkShaderModule meshFragmentShader = nullptr;
+	if (!loadShaderModule("../res/shaders/triangle.frag.spv", renderVkState->device, &meshFragmentShader)) {
+		printf("Error when building the mesh fragment shader");
 	}
 
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo{
+	VkPushConstantRange range {
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		.offset = 0,
+		.size = sizeof(MeshPushConstants)
+	};
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.flags = 0,
 		.setLayoutCount = 0,
 		.pSetLayouts = nullptr,
-		.pushConstantRangeCount = 0,
-		.pPushConstantRanges = nullptr
+		.pushConstantRangeCount = 1,
+		.pPushConstantRanges = &range
 	};
 
-	VK_CHECK(vkCreatePipelineLayout(renderVkState->device, &pipelineLayoutInfo, nullptr, &renderVkState->trianglePipelineLayout));
+	VK_CHECK(vkCreatePipelineLayout(renderVkState->device, &pipelineLayoutInfo, nullptr, &renderVkState->meshPipelineLayout));
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = {
-		shaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, triangleVertexShader),
-		shaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragmentShader)
+		shaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, meshVertexShader),
+		shaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, meshFragmentShader)
 	};
-	renderVkState->trianglePipeline = buildPipeline(renderVkState->device, renderVkState->trianglePipelineLayout, shaderStages, ArrayCount(shaderStages), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE, renderVkState->drawImage->format, VK_FORMAT_UNDEFINED, false);
+	renderVkState->meshPipeline = buildPipeline(renderVkState->device, renderVkState->meshPipelineLayout, shaderStages, ArrayCount(shaderStages), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE, renderVkState->drawImage->format, VK_FORMAT_UNDEFINED, false);
 
-	vkDestroyShaderModule(renderVkState->device, triangleVertexShader, nullptr);
-	vkDestroyShaderModule(renderVkState->device, triangleFragmentShader, nullptr);
+	vkDestroyShaderModule(renderVkState->device, meshVertexShader, nullptr);
+	vkDestroyShaderModule(renderVkState->device, meshFragmentShader, nullptr);
 }
 
 void Render_equipWindow(OSWindowHandle windowHandle) {
@@ -1056,20 +1205,38 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 	// Write to descriptor set
 	VkDescriptorImageInfo imgInfo{
 		.sampler = nullptr,
-		.imageView = renderVkState->drawImage->imageView,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+			.imageView = renderVkState->drawImage->imageView,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL
 	};
 
 	VkWriteDescriptorSet setWrite{
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.pNext = nullptr,
-		.dstSet = renderVkState->computeSet,
-		.dstBinding = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.pImageInfo = &imgInfo
+			.pNext = nullptr,
+			.dstSet = renderVkState->computeSet,
+			.dstBinding = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.pImageInfo = &imgInfo
 	};
 	vkUpdateDescriptorSets(renderVkState->device, 1, &setWrite, 0, nullptr);
+	
+	// TEMP: Create mesh buffers
+	VkBufferUsageFlags vertexUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+ 	VkBufferUsageFlags indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	renderVkState->meshVertexBuffer = createBuffer(renderVkState->device, memoryProperties, sizeof(cubeVertices), vertexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	renderVkState->meshIndexBuffer = createBuffer(renderVkState->device, memoryProperties, sizeof(cubeIndices), indexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	VkCommandPool commandPool = renderVkState->frames[0].commandPool;
+	VkCommandBuffer commandBuffer = renderVkState->frames[0].commandBuffer;
+
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, renderVkState->meshVertexBuffer, renderVkState->scratchBuffer, cubeVertices, sizeof(cubeVertices));
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, renderVkState->meshIndexBuffer, renderVkState->scratchBuffer, cubeIndices, sizeof(cubeIndices));
+
+	renderVkState->meshAddress = getBufferAddress(renderVkState->device, renderVkState->meshVertexBuffer);
+
+	// Set Push Constants
+	renderVkState->meshPushConstants = PushStruct(renderVkState->arena, MeshPushConstants);
+	renderVkState->meshPushConstants->vertexAddress = renderVkState->meshAddress;
 }
 
 inline FrameData& currentFrame() {
@@ -1087,6 +1254,12 @@ void Render_update() {
 	}
 
 	VK_CHECK(vkResetFences(renderVkState->device, 1, &currentFrame().renderFence));
+
+	// Update scene values
+	float aspectRatio = (float)renderVkState->drawExtent.width / (float)renderVkState->drawExtent.height;
+	mat4 view = matrixMakeLookAt({5.0f, 5.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f});
+	mat4 projection = matrixMakePerspective(RadFromDeg(90), aspectRatio, 0.1f, 100.0f);
+	renderVkState->meshPushConstants->mvp = projection * view;
 
 	VkCommandBuffer cmd = currentFrame().commandBuffer;
 	VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -1126,7 +1299,8 @@ void Render_update() {
 	VkRenderingInfo renderInfo = renderingInfo(renderVkState->drawExtent, &colorAttachment, nullptr);
 	vkCmdBeginRendering(cmd, &renderInfo);
 
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->trianglePipeline);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipeline);
+	vkCmdPushConstants(cmd, renderVkState->meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(MeshPushConstants), renderVkState->meshPushConstants);
 
 	VkViewport viewport = {};
 	viewport.x = 0;
@@ -1146,7 +1320,8 @@ void Render_update() {
 
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-	vkCmdDraw(cmd, 3, 1, 0, 0);
+	vkCmdBindIndexBuffer(cmd, renderVkState->meshIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdDrawIndexed(cmd, ArrayCount(cubeIndices), 1, 0, 0, 0);
 
 	vkCmdEndRendering(cmd);
 

@@ -1,21 +1,31 @@
 #version 450
+#extension GL_EXT_buffer_reference : require
+
+struct Vertex {
+	vec3 position;
+	float uv_x;
+	vec3 normal;
+	float uv_y;
+	vec4 color;
+};
 
 layout (location = 0) out vec3 outColor;
+layout (location = 1) out vec3 outNormal;
+
+layout(buffer_reference, std430) readonly buffer VertexBuffer {
+	Vertex vertices[];
+};
+
+layout(push_constant, std430) uniform pc {
+	mat4 mvp;
+	VertexBuffer vertexBuffer;
+} PushConstants;
 
 void main() {
-	const vec3 positions[3] = vec3[3](
-		vec3(1.f, 1.f, 0.0f),
-		vec3(-1.f, 1.f, 0.0f),
-		vec3(0.f, -1.f, 0.0f)
-	);
+	Vertex v = PushConstants.vertexBuffer.vertices[gl_VertexIndex];
 
-	const vec3 colors[3] = vec3[3](
-		vec3(1.0f, 0.0f, 0.0f),
-		vec3(0.0f, 1.0f, 0.0f),
-		vec3(00.f, 0.0f, 1.0f) 
-	);
+	outColor = v.color.rgb;
+	outNormal = v.normal;
 
-	outColor = colors[gl_VertexIndex];
-
-	gl_Position = vec4(positions[gl_VertexIndex], 1.0f);
+	gl_Position = PushConstants.mvp * vec4(v.position, 1.0f);
 }

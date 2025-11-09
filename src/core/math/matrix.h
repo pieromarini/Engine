@@ -49,32 +49,65 @@ inline mat4 matrixMakeScale(vec3 scale) {
 
 // TODO(piero): rotation matrix
 
+// NOTE: Perspective and LookAt were modified to fit Vulkan's expected NDC coordinate system. Maybe we should just use the same base formula and just add an extra transformation.
+// https://johannesugb.github.io/gpu-programming/setting-up-a-proper-vulkan-projection-matrix/
+
 // Projections
 inline mat4 matrixMakePerspective(f32 fov, f32 aspectRatio, f32 nearZ, f32 farZ) {
 	mat4 result = mat4Diagonal(1.0f);
-	f32 tanHalfTheta = tanf(fov / 2);
-	result.elements[0][0] = 1.f / tanHalfTheta;
-	result.elements[1][1] = aspectRatio / tanHalfTheta;
-	result.elements[2][3] = 1.f;
-	result.elements[2][2] = -(nearZ + farZ) / (nearZ - farZ);
-	result.elements[3][2] = (2.f * nearZ * farZ) / (nearZ - farZ);
-	result.elements[3][3] = 0.f;
+
+	f32 tanHalfTheta = tanf(fov / 2.0f);
+	result.elements[0][0] = 1.0f / (aspectRatio * tanHalfTheta);
+	result.elements[1][1] = 1.0f / tanHalfTheta;
+	result.elements[2][2] = farZ / (nearZ - farZ);
+	result.elements[2][3] = -1.0f;
+	result.elements[3][2] = -(nearZ * farZ) / (farZ - nearZ);
+	result.elements[3][3] = 0.0f;
+
 	return result;
 }
 
 inline mat4 matrixMakeOrthographic(f32 left, f32 right, f32 bottom, f32 top, f32 nearZ, f32 farZ) {
-	mat4 result = mat4Diagonal(1.f);
+	mat4 result = mat4Diagonal(1.0f);
 
-	result.elements[0][0] = 2.f / (right - left);
-	result.elements[1][1] = 2.f / (top - bottom);
-	result.elements[2][2] = 2.f / (farZ - nearZ);
-	result.elements[3][3] = 1.f;
+	result.elements[0][0] = 2.0f / (right - left);
+	result.elements[1][1] = 2.0f / (top - bottom);
+	result.elements[2][2] = 2.0f / (farZ - nearZ);
+	result.elements[3][3] = 1.0f;
 
 	result.elements[3][0] = (left + right) / (left - right);
 	result.elements[3][1] = (bottom + top) / (bottom - top);
 	result.elements[3][2] = (nearZ + farZ) / (nearZ - farZ);
 
 	return result;
+}
+
+// View matrices
+inline mat4 matrixMakeLookAt(vec3 eye, vec3 center, vec3 up) {
+ mat4 result{};
+
+ vec3 f = vecNormalize(center - eye);
+ vec3 s = vecNormalize(vecCrossProduct(f, up));
+ vec3 u = vecCrossProduct(s, f);
+
+ result.elements[0][0] = s.x;
+ result.elements[0][1] = u.x;
+ result.elements[0][2] = -f.x;
+ result.elements[0][3] = 0.0f;
+ result.elements[1][0] = s.y;
+ result.elements[1][1] = u.y;
+ result.elements[1][2] = -f.y;
+ result.elements[1][3] = 0.0f;
+ result.elements[2][0] = s.z;
+ result.elements[2][1] = u.z;
+ result.elements[2][2] = -f.z;
+ result.elements[2][3] = 0.0f;
+ result.elements[3][0] = -vecDotProduct(s, eye);
+ result.elements[3][1] = -vecDotProduct(u, eye);
+ result.elements[3][2] = vecDotProduct(f, eye);
+ result.elements[3][3] = 1.0f;
+
+ return result;
 }
 
 // Matrix multiplication

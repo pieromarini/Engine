@@ -34,6 +34,13 @@ struct RenderVkImage {
 	VkFormat format;
 };
 
+struct RenderVkBuffer {
+	VkBuffer buffer;
+	VkDeviceMemory memory;
+	void* data;
+	u32 size;
+};
+
 struct FrameData {
 	VkCommandPool commandPool;
 	VkCommandBuffer commandBuffer;
@@ -41,6 +48,19 @@ struct FrameData {
 	VkSemaphore swapchainSemaphore;
 	VkSemaphore renderSemaphore;
 	VkFence renderFence;
+};
+
+struct MeshPushConstants {
+	mat4 mvp;
+	VkDeviceAddress vertexAddress;
+};
+
+struct Vertex {
+	vec3 position;
+	float uv_x;
+	vec3 normal;
+	float uv_y;
+	vec4 color;
 };
 
 struct RenderVkState {
@@ -59,6 +79,8 @@ struct RenderVkState {
 	RenderVkImage* drawImage;
 	VkExtent2D drawExtent;
 
+	MeshPushConstants* meshPushConstants;
+
 	// Descriptors
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSetLayout computeLayout;
@@ -67,13 +89,20 @@ struct RenderVkState {
 	// Pipelines
 	VkPipeline computePipeline;
 	VkPipelineLayout computePipelineLayout;
-	VkPipeline trianglePipeline;
-	VkPipelineLayout trianglePipelineLayout;
+	VkPipeline meshPipeline;
+	VkPipelineLayout meshPipelineLayout;
+
+	// Mesh buffer data
+	RenderVkBuffer meshVertexBuffer;
+	RenderVkBuffer meshIndexBuffer;
+	VkDeviceAddress meshAddress;
 
 	// Immediate Submit
 	VkFence immFence;
 	VkCommandPool immCommandPool;
 	VkCommandBuffer immCommandBuffer;
+
+	RenderVkBuffer scratchBuffer;
 
 	Arena* frameArena;
 	FrameData frames[MAX_FRAMES];
@@ -135,6 +164,12 @@ VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, u32
 RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u32 width, u32 height, u32 mipLevels, VkFormat format, VkImageUsageFlags usage);
 void destroyImage(VkDevice device, RenderVkImage* image);
 
+RenderVkBuffer createBuffer(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u32 size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryFlags);
+void uploadBuffer(VkDevice device, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue queue, const RenderVkBuffer& buffer, const RenderVkBuffer& scratch, void* data, u32 size);
+void destroyBuffer(VkDevice device, const RenderVkBuffer& buffer);
+
+VkDeviceAddress getBufferAddress(VkDevice device, const RenderVkBuffer& buffer);
+
 VkSampler createSampler(VkDevice device, VkFilter filter, VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressMode, VkSamplerReductionModeEXT reductionMode = VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE_EXT);
 
 static bool isLayerSupported(const char* name);
@@ -159,6 +194,7 @@ void initCommands();
 void initSync();
 void initDescriptors();
 void initPipelines();
+
 VkInstance createInstance();
 VkDebugReportCallbackEXT registerDebugCallback(VkInstance instance);
 uint32_t getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice);
