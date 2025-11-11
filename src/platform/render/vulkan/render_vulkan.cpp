@@ -16,39 +16,39 @@ per_thread RenderVkState* renderVkState;
 static Vertex cubeVertices[] = {
 	// Front face
 	{{-0.5f, -0.5f,  0.5f}, 0.0f, { 0.0f,  0.0f,  1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
-	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
-	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
+	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
 
 	// Back face
-	{{ 0.5f, -0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
-	{{-0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {0.0f, 1.0f, 1.0f, 1.0f}},
+	{{ 0.5f, -0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
+	{{-0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
 	{{-0.5f,  0.5f, -0.5f}, 1.0f, { 0.0f,  0.0f, -1.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
-	{{ 0.5f,  0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 1.0f, {0.3f, 0.3f, 0.3f, 1.0f}},
+	{{ 0.5f,  0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
 
 	// Left face
-	{{-0.5f, -0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+	{{-0.5f, -0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
 	{{-0.5f, -0.5f,  0.5f}, 1.0f, {-1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
-	{{-0.5f,  0.5f,  0.5f}, 1.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
-	{{-0.5f,  0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
+	{{-0.5f,  0.5f,  0.5f}, 1.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
+	{{-0.5f,  0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
 
 	// Right face
-	{{ 0.5f, -0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
-	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 1.0f, 1.0f}},
-	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
-	{{ 0.5f,  0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {0.3f, 0.3f, 0.3f, 1.0f}},
+	{{ 0.5f, -0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
+	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
+	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
+	{{ 0.5f,  0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
 
 	// Top face
-	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
-	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
+	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
+	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
+	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
 	{{-0.5f,  0.5f, -0.5f}, 0.0f, { 0.0f,  1.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
 
 	// Bottom face
 	{{-0.5f, -0.5f, -0.5f}, 0.0f, { 0.0f, -1.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
-	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 1.0f, 1.0f}},
-	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
-	{{-0.5f, -0.5f,  0.5f}, 0.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {0.3f, 0.3f, 0.3f, 1.0f}},
+	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
+	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
+	{{-0.5f, -0.5f,  0.5f}, 0.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
 };
 
 static u32 cubeIndices[] = {
@@ -556,6 +556,7 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 	// Create new render target
 	// TODO: extract this out. Swapchain recreation shouldn't be tied to render-target recreation.
 	destroyImage(renderVkState->device, renderVkState->drawImage);
+	destroyImage(renderVkState->device, renderVkState->depthImage);
 
 	VkPhysicalDeviceMemoryProperties memoryProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
@@ -567,6 +568,7 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 	renderVkState->drawImage = createImage(device, memoryProperties, width, height, 1, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages);
+	renderVkState->depthImage = createImage(device, memoryProperties, width, height, 1, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	renderVkState->drawExtent = { .width = (u32)width, .height = (u32)height };
 
 	destroySwapchain(device, oldSwapchain);
@@ -890,15 +892,15 @@ VkPipeline buildPipeline(VkDevice device, VkPipelineLayout pipelineLayout, VkPip
 	};
 	VkPipelineDepthStencilStateCreateInfo depthStencil{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-			.depthTestEnable = VK_FALSE,
-			.depthWriteEnable = VK_FALSE,
-			.depthCompareOp = VK_COMPARE_OP_NEVER,
+			.depthTestEnable = VK_TRUE,
+			.depthWriteEnable = VK_TRUE,
+			.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL,
 			.depthBoundsTestEnable = VK_FALSE,
 			.stencilTestEnable = VK_FALSE,
 			.front = {},
 			.back = {},
-			.minDepthBounds = 0.f,
-			.maxDepthBounds = 1.f
+			.minDepthBounds = 0.0f,
+			.maxDepthBounds = 1.0f
 	};
 	VkPipelineRenderingCreateInfo renderInfo{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
@@ -1157,7 +1159,7 @@ void initPipelines() {
 		shaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, meshVertexShader),
 		shaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, meshFragmentShader)
 	};
-	renderVkState->meshPipeline = buildPipeline(renderVkState->device, renderVkState->meshPipelineLayout, shaderStages, ArrayCount(shaderStages), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE, renderVkState->drawImage->format, VK_FORMAT_UNDEFINED, false);
+	renderVkState->meshPipeline = buildPipeline(renderVkState->device, renderVkState->meshPipelineLayout, shaderStages, ArrayCount(shaderStages), VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE, renderVkState->drawImage->format, renderVkState->depthImage->format, false);
 
 	vkDestroyShaderModule(renderVkState->device, meshVertexShader, nullptr);
 	vkDestroyShaderModule(renderVkState->device, meshFragmentShader, nullptr);
@@ -1198,6 +1200,7 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 	drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 	renderVkState->drawImage = createImage(device, memoryProperties, width, height, 1, VK_FORMAT_R16G16B16A16_SFLOAT, drawImageUsages);
+	renderVkState->depthImage = createImage(device, memoryProperties, width, height, 1, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	renderVkState->drawExtent = { .width = width, .height = height };
 
 	initPipelines();
@@ -1257,8 +1260,12 @@ void Render_update() {
 
 	// Update scene values
 	float aspectRatio = (float)renderVkState->drawExtent.width / (float)renderVkState->drawExtent.height;
-	mat4 view = matrixMakeLookAt({5.0f, 5.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f});
-	mat4 projection = matrixMakePerspective(RadFromDeg(90), aspectRatio, 0.1f, 100.0f);
+	mat4 view = matrixMakeLookAt({0.0f, 1.0f, 2.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+	mat4 projection = matrixMakePerspective(RadFromDeg(70.0f), aspectRatio, 10000.0f, 0.1f);
+
+	// Invert Y-axis
+	projection.elements[1][1] *= -1;
+
 	renderVkState->meshPushConstants->mvp = projection * view;
 
 	VkCommandBuffer cmd = currentFrame().commandBuffer;
@@ -1292,11 +1299,13 @@ void Render_update() {
 	vkCmdDispatch(cmd, Ceil(renderVkState->drawExtent.width / 16.0), Ceil(renderVkState->drawExtent.height / 16.0), 1);
 
 	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	transitionImage(cmd, renderVkState->depthImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 	// Draw geometry
 	VkRenderingAttachmentInfo colorAttachment = attachmentInfo(renderVkState->drawImage->imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(renderVkState->depthImage->imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-	VkRenderingInfo renderInfo = renderingInfo(renderVkState->drawExtent, &colorAttachment, nullptr);
+	VkRenderingInfo renderInfo = renderingInfo(renderVkState->drawExtent, &colorAttachment, &depthAttachment);
 	vkCmdBeginRendering(cmd, &renderInfo);
 
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipeline);
@@ -1307,8 +1316,8 @@ void Render_update() {
 	viewport.y = 0;
 	viewport.width = (f32)renderVkState->drawExtent.width;
 	viewport.height = (f32)renderVkState->drawExtent.height;
-	viewport.minDepth = 0.f;
-	viewport.maxDepth = 1.f;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
 
 	vkCmdSetViewport(cmd, 0, 1, &viewport);
 

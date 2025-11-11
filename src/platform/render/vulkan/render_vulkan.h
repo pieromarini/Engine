@@ -77,6 +77,7 @@ struct RenderVkState {
 	RenderVkSwapchain* swapchain;
 
 	RenderVkImage* drawImage;
+	RenderVkImage* depthImage;
 	VkExtent2D drawExtent;
 
 	MeshPushConstants* meshPushConstants;

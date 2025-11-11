@@ -14,9 +14,11 @@ struct mat4 {
 };
 
 inline mat3 mat3Diagonal(f32 d) {
-	mat3 result = { { { d, 0, 0 },
+	mat3 result = { {
+		{ d, 0, 0 },
 		{ 0, d, 0 },
-		{ 0, 0, d } } };
+		{ 0, 0, d }
+	} };
 	return result;
 }
 
@@ -49,9 +51,6 @@ inline mat4 matrixMakeScale(vec3 scale) {
 
 // TODO(piero): rotation matrix
 
-// NOTE: Perspective and LookAt were modified to fit Vulkan's expected NDC coordinate system. Maybe we should just use the same base formula and just add an extra transformation.
-// https://johannesugb.github.io/gpu-programming/setting-up-a-proper-vulkan-projection-matrix/
-
 // Projections
 inline mat4 matrixMakePerspective(f32 fov, f32 aspectRatio, f32 nearZ, f32 farZ) {
 	mat4 result = mat4Diagonal(1.0f);
@@ -59,25 +58,25 @@ inline mat4 matrixMakePerspective(f32 fov, f32 aspectRatio, f32 nearZ, f32 farZ)
 	f32 tanHalfTheta = tanf(fov / 2.0f);
 	result.elements[0][0] = 1.0f / (aspectRatio * tanHalfTheta);
 	result.elements[1][1] = 1.0f / tanHalfTheta;
-	result.elements[2][2] = farZ / (nearZ - farZ);
-	result.elements[2][3] = -1.0f;
-	result.elements[3][2] = -(nearZ * farZ) / (farZ - nearZ);
+	result.elements[2][2] = farZ / (farZ - nearZ);
+	result.elements[2][3] = 1.0f;
+	result.elements[3][2] = -(farZ * nearZ) / (farZ - nearZ);
 	result.elements[3][3] = 0.0f;
 
 	return result;
 }
 
-inline mat4 matrixMakeOrthographic(f32 left, f32 right, f32 bottom, f32 top, f32 nearZ, f32 farZ) {
+inline mat4 matrixMakeOrthographic(f32 left, f32 right, f32 bottom, f32 top, f32 zNear, f32 zFar) {
 	mat4 result = mat4Diagonal(1.0f);
 
 	result.elements[0][0] = 2.0f / (right - left);
 	result.elements[1][1] = 2.0f / (top - bottom);
-	result.elements[2][2] = 2.0f / (farZ - nearZ);
+	result.elements[2][2] = 1.0f / (zFar - zNear);
 	result.elements[3][3] = 1.0f;
 
-	result.elements[3][0] = (left + right) / (left - right);
-	result.elements[3][1] = (bottom + top) / (bottom - top);
-	result.elements[3][2] = (nearZ + farZ) / (nearZ - farZ);
+	result.elements[3][0] = -(right + left) / (right - left);
+	result.elements[3][1] = -(top + bottom) / (top - bottom);
+	result.elements[3][2] = -zNear / (zFar - zNear);
 
 	return result;
 }
@@ -87,27 +86,40 @@ inline mat4 matrixMakeLookAt(vec3 eye, vec3 center, vec3 up) {
  mat4 result{};
 
  vec3 f = vecNormalize(center - eye);
- vec3 s = vecNormalize(vecCrossProduct(f, up));
- vec3 u = vecCrossProduct(s, f);
+ vec3 s = vecNormalize(vecCrossProduct(up, f));
+ vec3 u = vecCrossProduct(f, s);
 
  result.elements[0][0] = s.x;
- result.elements[0][1] = u.x;
- result.elements[0][2] = -f.x;
- result.elements[0][3] = 0.0f;
  result.elements[1][0] = s.y;
- result.elements[1][1] = u.y;
- result.elements[1][2] = -f.y;
- result.elements[1][3] = 0.0f;
  result.elements[2][0] = s.z;
- result.elements[2][1] = u.z;
- result.elements[2][2] = -f.z;
- result.elements[2][3] = 0.0f;
  result.elements[3][0] = -vecDotProduct(s, eye);
+
+ result.elements[0][1] = u.x;
+ result.elements[1][1] = u.y;
+ result.elements[2][1] = u.z;
  result.elements[3][1] = -vecDotProduct(u, eye);
- result.elements[3][2] = vecDotProduct(f, eye);
+
+ result.elements[0][2] = f.x;
+ result.elements[1][2] = f.y;
+ result.elements[2][2] = f.z;
+ result.elements[3][2] = -vecDotProduct(f, eye);
+
+ result.elements[0][3] = 0.0f;
+ result.elements[1][3] = 0.0f;
+ result.elements[2][3] = 0.0f;
  result.elements[3][3] = 1.0f;
 
  return result;
+}
+
+inline mat4 mat4Transpose(const mat4& m) {
+	mat4 result{};
+	for (int i = 0; i < 4; ++i) {
+		for (int j = 0; j < 4; ++j) {
+			result.elements[i][j] = m.elements[j][i];
+		}
+	}
+	return result;
 }
 
 // Matrix multiplication
