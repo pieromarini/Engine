@@ -3,14 +3,15 @@
 
 struct Vertex {
 	vec3 position;
-	float uv_x;
+	float tu;
 	vec3 normal;
-	float uv_y;
+	float tv;
 	vec4 color;
 };
 
 layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec3 outNormal;
+layout (location = 2) out vec2 outTexCoords;
 
 layout(buffer_reference, std430) readonly buffer VertexBuffer {
 	Vertex vertices[];
@@ -26,6 +27,7 @@ void main() {
 
 	outColor = v.color.rgb;
 	outNormal = v.normal;
+	outTexCoords = vec2(v.tu, v.tv);
 
 	gl_Position = PushConstants.mvp * vec4(v.position, 1.0f);
 }

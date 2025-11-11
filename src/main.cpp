@@ -1,4 +1,5 @@
 #include "core/core_inc.h"
+#include "parsers/gltf/parser_gltf_inc.h"
 #include "platform/os/os_inc.h"
 #include "platform/render/render_inc.h"
 
@@ -74,6 +75,8 @@ void entryPoint() {
 	window->handle = osWindow;
 
 	DLLPushBack(state->firstWindow, state->lastWindow, window);
+
+	Render_loadScene(Str8L("../res/models/Lantern.glb"));
 
 	while(!state->quit) {
 		update();

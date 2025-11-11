@@ -6,59 +6,13 @@
 #include "core/memory/arena.h"
 #include "core/thread_context.h"
 #include "platform/os/gfx/os_gfx_win32.h"
+#include "platform/render/render_core.h"
 #include "platform/render/vulkan/render_vulkan_transitions.h"
 #include "platform/render/vulkan/render_vulkan_shaders.h"
 #include "vulkan/vulkan_core.h"
 
 
 per_thread RenderVkState* renderVkState;
-
-static Vertex cubeVertices[] = {
-	// Front face
-	{{-0.5f, -0.5f,  0.5f}, 0.0f, { 0.0f,  0.0f,  1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  0.0f,  1.0f}, 1.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-
-	// Back face
-	{{ 0.5f, -0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
-	{{-0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f,  0.0f, -1.0f}, 0.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
-	{{-0.5f,  0.5f, -0.5f}, 1.0f, { 0.0f,  0.0f, -1.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
-	{{ 0.5f,  0.5f, -0.5f}, 0.0f, { 0.0f,  0.0f, -1.0f}, 1.0f, {1.0f, 1.0f, 1.0f, 1.0f}},
-
-	// Left face
-	{{-0.5f, -0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
-	{{-0.5f, -0.5f,  0.5f}, 1.0f, {-1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
-	{{-0.5f,  0.5f,  0.5f}, 1.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
-	{{-0.5f,  0.5f, -0.5f}, 0.0f, {-1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 1.0f, 0.0f, 1.0f}},
-
-	// Right face
-	{{ 0.5f, -0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
-	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 0.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
-	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
-	{{ 0.5f,  0.5f,  0.5f}, 0.0f, { 1.0f,  0.0f,  0.0f}, 1.0f, {0.0f, 0.0f, 1.0f, 1.0f}},
-
-	// Top face
-	{{-0.5f,  0.5f,  0.5f}, 0.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
-	{{ 0.5f,  0.5f,  0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 0.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
-	{{ 0.5f,  0.5f, -0.5f}, 1.0f, { 0.0f,  1.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
-	{{-0.5f,  0.5f, -0.5f}, 0.0f, { 0.0f,  1.0f,  0.0f}, 1.0f, {1.0f, 1.0f, 0.0f, 1.0f}},
-
-	// Bottom face
-	{{-0.5f, -0.5f, -0.5f}, 0.0f, { 0.0f, -1.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
-	{{ 0.5f, -0.5f, -0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 0.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
-	{{ 0.5f, -0.5f,  0.5f}, 1.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
-	{{-0.5f, -0.5f,  0.5f}, 0.0f, { 0.0f, -1.0f,  0.0f}, 1.0f, {1.0f, 0.0f, 1.0f, 1.0f}},
-};
-
-static u32 cubeIndices[] = {
-	0, 1, 2, 2, 3, 0,
-	4, 5, 6, 6, 7, 4,
-	8, 9,10,10,11, 8,
-	12,13,14,14,15,12,
-	16,17,18,18,19,16,
-	20,21,22,22,23,20
-};
 
 void immediateSubmit(void (*fn)(VkCommandBuffer cmd)) {
 	VK_CHECK(vkResetFences(renderVkState->device, 1, &renderVkState->immFence));
@@ -347,7 +301,7 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint32_t 
 }
 
 VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint32_t familyIndex) {
-	float queuePriorities[] = { 1.0f };
+	f32 queuePriorities[] = { 1.0f };
 
 	VkDeviceQueueCreateInfo queueInfo = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
 	queueInfo.queueFamilyIndex = familyIndex;
@@ -573,6 +527,7 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 
 	destroySwapchain(device, oldSwapchain);
 
+	/*
 	// Update descriptor set using drawImage
 	VkDescriptorImageInfo imgInfo{
 		.sampler = nullptr,
@@ -590,6 +545,7 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 		.pImageInfo = &imgInfo
 	};
 	vkUpdateDescriptorSets(renderVkState->device, 1, &setWrite, 0, nullptr);
+	*/
 
 	return Swapchain_Resized;
 }
@@ -965,11 +921,49 @@ VkPipeline buildPipeline(VkDevice device, VkPipelineLayout pipelineLayout, VkPip
 	return result;
 }
 
+void Render_loadScene(String8 path) {
+	Scene* scene = parseGLTF(renderVkState->sceneArena, path);
+
+	Assert(scene->valid);
+
+	VkCommandPool commandPool = renderVkState->frames[0].commandPool;
+	VkCommandBuffer commandBuffer = renderVkState->frames[0].commandBuffer;
+
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(renderVkState->physicalDevice, &memoryProperties);
+
+	VkBufferUsageFlags vertexUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+ 	VkBufferUsageFlags indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	for (u32 i = 0; i < scene->meshCount; ++i) {
+		Mesh& mesh = scene->meshes[i];
+
+		GPUMesh* gpuMesh = PushStruct(renderVkState->arena, GPUMesh);
+		DLLPushBack(renderVkState->firstMesh, renderVkState->lastMesh, gpuMesh);
+		renderVkState->meshCount++;
+
+		gpuMesh->vertexBuffer = createBuffer(renderVkState->device, memoryProperties, mesh.vertexCount * sizeof(Vertex), vertexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		gpuMesh->indexBuffer = createBuffer(renderVkState->device, memoryProperties, mesh.indexCount * sizeof(u32), indexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		gpuMesh->vertexCount = mesh.vertexCount;
+		gpuMesh->indexCount = mesh.indexCount;
+
+		uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->vertexBuffer, renderVkState->scratchBuffer, mesh.vertices, mesh.vertexCount * sizeof(Vertex));
+		uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->indexBuffer, renderVkState->scratchBuffer, mesh.indices, mesh.indexCount * sizeof(u32));
+
+		gpuMesh->vertexAddress = getBufferAddress(renderVkState->device, gpuMesh->vertexBuffer);
+
+		// TODO(piero): This is not 100% correct because we are only considering transforms from meshes when parsing but regular GLTF nodes can also have transformations.
+		gpuMesh->modelMatrix = scene->transforms[i];
+	}
+}
+
 // Init subsystem
 void Render_init() {
-	Arena* arena = arenaAlloc(Gigabytes(16));
+	Arena* arena = arenaAlloc(Gigabytes(4));
 	renderVkState = PushStruct(arena, RenderVkState);
 	renderVkState->arena = arena;
+	renderVkState->sceneArena = arenaAlloc(Gigabytes(4));
 
 	VK_CHECK(volkInitialize());
 
@@ -1085,6 +1079,7 @@ void initDescriptors() {
 	};
 	renderVkState->descriptorPool = buildDescriptorPool(maxSets, poolSizes, poolSizesCount);
 
+	/*
 	u32 bindingsCount = 1;
 	VkDescriptorSetLayoutBinding* bindings = PushArray(scratch.arena, VkDescriptorSetLayoutBinding, bindingsCount);
 	bindings[0] = {
@@ -1097,38 +1092,13 @@ void initDescriptors() {
 	renderVkState->computeLayout = buildDescriptorLayout(bindings, bindingsCount, 0);
 
 	renderVkState->computeSet = buildDescriptorSet(renderVkState->descriptorPool, renderVkState->computeLayout);
+	*/
 
 	ScratchEnd(scratch);
 }
 
 void initPipelines() {
-	// Compute pipeline
-	VkPipelineLayoutCreateInfo computeLayout{};
-	computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	computeLayout.pNext = nullptr;
-	computeLayout.pSetLayouts = &renderVkState->computeLayout;
-	computeLayout.setLayoutCount = 1;
-
-	VK_CHECK(vkCreatePipelineLayout(renderVkState->device, &computeLayout, nullptr, &renderVkState->computePipelineLayout));
-
-	VkShaderModule computeDrawShader = nullptr;
-	if (!loadShaderModule("../res/shaders/gradient.comp.spv", renderVkState->device, &computeDrawShader)) {
-		printf("Error when building the compute shader");
-	}
-
-	VkPipelineShaderStageCreateInfo stageinfo = shaderStageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT, computeDrawShader);
-
-	VkComputePipelineCreateInfo computePipelineCreateInfo{};
-	computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-	computePipelineCreateInfo.pNext = nullptr;
-	computePipelineCreateInfo.layout = renderVkState->computePipelineLayout;
-	computePipelineCreateInfo.stage = stageinfo;
-
-	VK_CHECK(vkCreateComputePipelines(renderVkState->device, VK_NULL_HANDLE,1 , &computePipelineCreateInfo, nullptr, &renderVkState->computePipeline));
-
-	vkDestroyShaderModule(renderVkState->device, computeDrawShader, nullptr);
-
-	// Triangle pipeline
+	// mesh pipeline
 	VkShaderModule meshVertexShader = nullptr;
 	if (!loadShaderModule("../res/shaders/triangle.vert.spv", renderVkState->device, &meshVertexShader)) {
 		printf("Error when building the mesh vertex shader");
@@ -1205,41 +1175,27 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 
 	initPipelines();
 
+	/*
 	// Write to descriptor set
 	VkDescriptorImageInfo imgInfo{
 		.sampler = nullptr,
-			.imageView = renderVkState->drawImage->imageView,
-			.imageLayout = VK_IMAGE_LAYOUT_GENERAL
+		.imageView = renderVkState->drawImage->imageView,
+		.imageLayout = VK_IMAGE_LAYOUT_GENERAL
 	};
 
 	VkWriteDescriptorSet setWrite{
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.pNext = nullptr,
-			.dstSet = renderVkState->computeSet,
-			.dstBinding = 0,
-			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			.pImageInfo = &imgInfo
+		.pNext = nullptr,
+		.dstSet = renderVkState->computeSet,
+		.dstBinding = 0,
+		.descriptorCount = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.pImageInfo = &imgInfo
 	};
 	vkUpdateDescriptorSets(renderVkState->device, 1, &setWrite, 0, nullptr);
+	*/
 	
-	// TEMP: Create mesh buffers
-	VkBufferUsageFlags vertexUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
- 	VkBufferUsageFlags indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	renderVkState->meshVertexBuffer = createBuffer(renderVkState->device, memoryProperties, sizeof(cubeVertices), vertexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	renderVkState->meshIndexBuffer = createBuffer(renderVkState->device, memoryProperties, sizeof(cubeIndices), indexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	VkCommandPool commandPool = renderVkState->frames[0].commandPool;
-	VkCommandBuffer commandBuffer = renderVkState->frames[0].commandBuffer;
-
-	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, renderVkState->meshVertexBuffer, renderVkState->scratchBuffer, cubeVertices, sizeof(cubeVertices));
-	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, renderVkState->meshIndexBuffer, renderVkState->scratchBuffer, cubeIndices, sizeof(cubeIndices));
-
-	renderVkState->meshAddress = getBufferAddress(renderVkState->device, renderVkState->meshVertexBuffer);
-
-	// Set Push Constants
 	renderVkState->meshPushConstants = PushStruct(renderVkState->arena, MeshPushConstants);
-	renderVkState->meshPushConstants->vertexAddress = renderVkState->meshAddress;
 }
 
 inline FrameData& currentFrame() {
@@ -1259,14 +1215,12 @@ void Render_update() {
 	VK_CHECK(vkResetFences(renderVkState->device, 1, &currentFrame().renderFence));
 
 	// Update scene values
-	float aspectRatio = (float)renderVkState->drawExtent.width / (float)renderVkState->drawExtent.height;
-	mat4 view = matrixMakeLookAt({0.0f, 1.0f, 2.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
+	f32 aspectRatio = (f32)renderVkState->drawExtent.width / (f32)renderVkState->drawExtent.height;
+	mat4 view = matrixMakeLookAt({0.0f, 20.0f, 20.0f}, {0.0f, 14.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
 	mat4 projection = matrixMakePerspective(RadFromDeg(70.0f), aspectRatio, 10000.0f, 0.1f);
 
 	// Invert Y-axis
 	projection.elements[1][1] *= -1;
-
-	renderVkState->meshPushConstants->mvp = projection * view;
 
 	VkCommandBuffer cmd = currentFrame().commandBuffer;
 	VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -1281,27 +1235,22 @@ void Render_update() {
 	// Record commands
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+	VkClearColorValue clearColor { 0.2f, 0.2, 0.2f, 1.0f };
+	VkImageSubresourceRange ranges {
+		.aspectMask  = VK_IMAGE_ASPECT_COLOR_BIT,
+		.baseMipLevel = 0,
+		.levelCount = 1,
+		.baseArrayLayer = 0,
+		.layerCount = 1
+	};
 
-	VkClearColorValue clearValue = { { 0.0f, 0.0f, 1.0f, 1.0f } };
+	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-	VkImageSubresourceRange clearRange {};
-	clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	clearRange.baseMipLevel = 0;
-	clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
-	clearRange.baseArrayLayer = 0;
-	clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+	vkCmdClearColorImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &ranges);
 
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, renderVkState->computePipeline);
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, renderVkState->computePipelineLayout, 0, 1, &renderVkState->computeSet, 0, nullptr);
-
-	// Draw with compute
-	vkCmdDispatch(cmd, Ceil(renderVkState->drawExtent.width / 16.0), Ceil(renderVkState->drawExtent.height / 16.0), 1);
-
-	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	transitionImage(cmd, renderVkState->depthImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-	// Draw geometry
 	VkRenderingAttachmentInfo colorAttachment = attachmentInfo(renderVkState->drawImage->imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(renderVkState->depthImage->imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
@@ -1309,7 +1258,6 @@ void Render_update() {
 	vkCmdBeginRendering(cmd, &renderInfo);
 
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipeline);
-	vkCmdPushConstants(cmd, renderVkState->meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(MeshPushConstants), renderVkState->meshPushConstants);
 
 	VkViewport viewport = {};
 	viewport.x = 0;
@@ -1329,8 +1277,16 @@ void Render_update() {
 
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-	vkCmdBindIndexBuffer(cmd, renderVkState->meshIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(cmd, ArrayCount(cubeIndices), 1, 0, 0, 0);
+	// Render meshes
+	for (GPUMesh* mesh = renderVkState->firstMesh; mesh != nullptr; mesh = mesh->next) {
+		renderVkState->meshPushConstants->vertexAddress = mesh->vertexAddress;
+		renderVkState->meshPushConstants->mvp = projection * view * mesh->modelMatrix;
+
+		vkCmdPushConstants(cmd, renderVkState->meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(MeshPushConstants), renderVkState->meshPushConstants);
+
+		vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(cmd, mesh->indexCount, 1, 0, 0, 0);
+	}
 
 	vkCmdEndRendering(cmd);
 

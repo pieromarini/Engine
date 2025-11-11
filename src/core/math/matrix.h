@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "core/core.h"
 #include "vector.h"
 
@@ -29,6 +28,14 @@ inline mat4 mat4Diagonal(f32 d) {
 		{ 0, 0, d, 0 },
 		{ 0, 0, 0, d },
 	} };
+	return result;
+}
+
+inline mat4 matrixFromArray(f32 values[16]) {
+	mat4 result = mat4Diagonal(1.0f);
+
+	memcpy(result.elements, values, 16 * sizeof(f32));
+	
 	return result;
 }
 

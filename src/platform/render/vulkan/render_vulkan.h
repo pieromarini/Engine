@@ -5,6 +5,8 @@
 #include "core/memory/arena.h"
 #include "platform/os/core/os_core.h"
 
+#include "parsers/gltf/parser_gltf_inc.h"
+
 // TODO(piero): move this win32 define
 #define VK_USE_PLATFORM_WIN32_KHR
 #define VOLK_IMPLEMENTATION
@@ -55,16 +57,23 @@ struct MeshPushConstants {
 	VkDeviceAddress vertexAddress;
 };
 
-struct Vertex {
-	vec3 position;
-	float uv_x;
-	vec3 normal;
-	float uv_y;
-	vec4 color;
+struct GPUMesh {
+	GPUMesh* next;
+	GPUMesh* prev;
+
+	RenderVkBuffer vertexBuffer;
+	RenderVkBuffer indexBuffer;
+	VkDeviceAddress vertexAddress;
+
+	u32 vertexCount;
+	u32 indexCount;
+
+	mat4 modelMatrix;
 };
 
 struct RenderVkState {
 	Arena* arena;
+	Arena* sceneArena;
 	VkInstance instance;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
@@ -84,19 +93,20 @@ struct RenderVkState {
 
 	// Descriptors
 	VkDescriptorPool descriptorPool;
-	VkDescriptorSetLayout computeLayout;
-	VkDescriptorSet computeSet;
+
+	// VkDescriptorSetLayout computeLayout;
+	// VkDescriptorSet computeSet;
+	// VkPipeline computePipeline;
+	// VkPipelineLayout computePipelineLayout;
 
 	// Pipelines
-	VkPipeline computePipeline;
-	VkPipelineLayout computePipelineLayout;
 	VkPipeline meshPipeline;
 	VkPipelineLayout meshPipelineLayout;
 
-	// Mesh buffer data
-	RenderVkBuffer meshVertexBuffer;
-	RenderVkBuffer meshIndexBuffer;
-	VkDeviceAddress meshAddress;
+	// Renderable meshes
+	GPUMesh* firstMesh;
+	GPUMesh* lastMesh;
+	u32 meshCount;
 
 	// Immediate Submit
 	VkFence immFence;
