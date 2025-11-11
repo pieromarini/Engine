@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/core.h"
-#include "core/math/vector.h"
 
 struct OSWindowHandle {
 	u64 u64[1];
@@ -33,6 +32,11 @@ void OS_commit(void* ptr, u64 size);
 void OS_decommit(void* ptr, u64 size);
 
 void OS_abort();
+
+static u64 OS_getOSTimerFreq();
+static u64 OS_readOSTimer();
+static u64 OS_readCPUTimer();
+static u64 OS_estimateCPUTimerFreq();
 
 void OS_init();
 

@@ -96,6 +96,8 @@ if "%msvc%"=="1"  set compile=%compile% -DCOMPILER_MSVC="1"
 if "%clang%"=="1" set compile=%compile% -DCOMPILER_CLANG="1"
 set compile=%compile% -DRENDER_BACKEND_VULKAN="1"
 
+if "%profiling%"=="1" set compile=%compile% -DENABLE_PROFILING="1"
+
 pushd build
 set didbuild=1 && %compile% ..\src\main.cpp %compile_link% %out%main.exe || exit /b 1
 popd

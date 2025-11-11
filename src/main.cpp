@@ -1,7 +1,8 @@
 #include "core/core_inc.h"
-#include "parsers/gltf/parser_gltf_inc.h"
 #include "platform/os/os_inc.h"
 #include "platform/render/render_inc.h"
+
+#include "parsers/gltf/parser_gltf_inc.h"
 
 #include "core/core_inc.cpp"
 #include "platform/os/os_inc.cpp"

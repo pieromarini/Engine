@@ -11,6 +11,7 @@
 #include "platform/render/vulkan/render_vulkan_shaders.h"
 #include "vulkan/vulkan_core.h"
 
+#include "core/perf/scope_profiler.h"
 
 per_thread RenderVkState* renderVkState;
 
@@ -922,6 +923,8 @@ VkPipeline buildPipeline(VkDevice device, VkPipelineLayout pipelineLayout, VkPip
 }
 
 void Render_loadScene(String8 path) {
+	PerfScope;
+
 	Scene* scene = parseGLTF(renderVkState->sceneArena, path);
 
 	Assert(scene->valid);

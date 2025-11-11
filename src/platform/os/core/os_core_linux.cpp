@@ -1,9 +1,12 @@
 #include "core/entry_point.h"
 #include "core/thread_context.h"
 #include "os_core.h"
+#include "platform/os/gfx/os_gfx.h"
 
-#include <sys/mman.h>
 #include <unistd.h>
+#include <x86intrin.h>
+#include <sys/mman.h>
+#include <sys/time.h>
 
 u64 OS_pageSize() {
 	u64 result = getpagesize();
@@ -35,6 +38,22 @@ void OS_decommit(void* ptr, u64 size) {
 
 void OS_abort() {
 	_exit(0);
+}
+
+static u64 OS_getOSTimerFreq() {
+	return 1000000;
+}
+
+static u64 OS_readOSTimer() {
+	timeval value;
+	gettimeofday(&value, 0);
+	
+	u64 Result = OS_getOSTimerFreq() * (u64)value.tv_sec + (u64)value.tv_usec;
+	return Result;
+}
+
+void OS_init() {
+	OS_gfxInit();
 }
 
 int main(int argc, char** argv) {

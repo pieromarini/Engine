@@ -42,6 +42,18 @@ void OS_abort() {
 	ExitProcess(1);
 }
 
+static u64 OS_getOSTimerFreq() {
+	LARGE_INTEGER freq;
+	QueryPerformanceFrequency(&freq);
+	return freq.QuadPart;
+}
+
+static u64 OS_readOSTimer() {
+	LARGE_INTEGER value;
+	QueryPerformanceCounter(&value);
+	return value.QuadPart;
+}
+
 void OS_init() {
 	OS_gfxInit();
 }
@@ -51,9 +63,15 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int
 	ThreadCtx_set(&tCtx);
 
 #if DEBUG
-	// Create console in debug mode
-	AllocConsole();
 	FILE* fp = nullptr;
+	b32 createdConsole = false;
+
+	if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+		if (AllocConsole()) {
+			createdConsole = true;
+		}
+	}
+
 	freopen_s(&fp, "CONOUT$", "w", stdout);
 	freopen_s(&fp, "CONOUT$", "w", stderr);
 	freopen_s(&fp, "CONIN$", "r", stdin);
@@ -62,11 +80,13 @@ int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int
 	mainEntryPoint(__argc, __argv);
 
 #if DEBUG
-	FreeConsole();
+	if (createdConsole) {
+		FreeConsole();
+	}
 #endif
 
 	ThreadCtx_set(&tCtx);
 	ThreadCtx_release();
 
-  return 0;
+	return 0;
 }
