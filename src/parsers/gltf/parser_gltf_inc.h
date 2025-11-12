@@ -1,10 +1,14 @@
 #pragma once
 
 #include "core/core.h"
+#include "core/core_strings.h"
 #include "core/math/matrix.h"
 #include "core/math/vector.h"
 #include "core/memory/arena.h"
 #include "core/thread_context.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
@@ -15,6 +19,24 @@ struct Vertex {
 	vec3 normal;
 	f32 tv;
 	vec4 color;
+};
+
+struct Material {
+	i32 albedo;
+	i32 normal;
+	i32 specular;
+	i32 emissive;
+
+	vec4 diffuseFactor;
+	vec4 specularFactor;
+	vec3 emissiveFactor;
+};
+
+struct Texture {
+	u8* data;
+	i32 width;
+	i32 height;
+	i32 dataSize;
 };
 
 struct Mesh {
@@ -30,6 +52,13 @@ struct Scene {
 	u32 meshCount;
 
 	mat4* transforms;
+	u32 transformCount;
+
+	Material* materials;
+	u32 materialCount;
+
+	Texture* textures;
+	u32 textureCount;
 
 	b32 valid;
 };
@@ -126,8 +155,88 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 			cgltf_node_transform_world(node, matrix);
 			u32 meshIndex = cgltf_mesh_index(data, node->mesh);
 			result->transforms[meshIndex] = matrixFromArray(matrix);
+
+			result->transformCount++;
 		}
 	}
+
+	result->materials = PushArray(arena, Material, data->materials_count);
+	result->materialCount = data->materials_count;
+	for (u32 i = 0; i < data->materials_count; ++i) {
+		const cgltf_material* material = &data->materials[i];
+
+		Material* mat = &result->materials[i];
+
+		mat->diffuseFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		if (material->has_pbr_specular_glossiness) {
+			if (material->pbr_specular_glossiness.diffuse_texture.texture) {
+				mat->albedo = i32(cgltf_texture_index(data, material->pbr_specular_glossiness.diffuse_texture.texture));
+			}
+			memcpy(mat->diffuseFactor.elements, material->pbr_specular_glossiness.diffuse_factor, sizeof(cgltf_float) * 4);
+
+			if (material->pbr_specular_glossiness.specular_glossiness_texture.texture) {
+				mat->specular = i32(cgltf_texture_index(data, material->pbr_specular_glossiness.specular_glossiness_texture.texture));
+			}
+			mat->specularFactor = vec4{ material->pbr_specular_glossiness.specular_factor[0], material->pbr_specular_glossiness.specular_factor[1], material->pbr_specular_glossiness.specular_factor[2], material->pbr_specular_glossiness.glossiness_factor };
+
+		} else if (material->has_pbr_metallic_roughness) {
+			if (material->pbr_metallic_roughness.base_color_texture.texture) {
+				mat->albedo = i32(cgltf_texture_index(data, material->pbr_metallic_roughness.base_color_texture.texture));
+			}
+			memcpy(mat->diffuseFactor.elements, material->pbr_metallic_roughness.base_color_factor, sizeof(cgltf_float) * 4);
+
+			if (material->pbr_metallic_roughness.metallic_roughness_texture.texture) {
+				mat->specular = i32(cgltf_texture_index(data, material->pbr_metallic_roughness.metallic_roughness_texture.texture));
+			}
+			mat->specularFactor = vec4{ 1.0f, 1.0f, 1.0f, 1.0f - material->pbr_metallic_roughness.roughness_factor };
+		}
+
+		if (material->normal_texture.texture) {
+			mat->normal = i32(cgltf_texture_index(data, material->normal_texture.texture));
+		}
+
+		if (material->emissive_texture.texture) {
+			mat->emissive = i32(cgltf_texture_index(data, material->emissive_texture.texture));
+		}
+
+		mat->emissiveFactor = vec3{ material->emissive_factor[0], material->emissive_factor[1], material->emissive_factor[2] };
+	}
+
+	result->textures = PushArray(arena, Texture, data->textures_count);
+	result->textureCount = data->textures_count;
+	for (u32 i = 0; i < data->textures_count; ++i) {
+		cgltf_texture* texture = &data->textures[i];
+		Assert(texture->image);
+
+		cgltf_image* image = texture->image;
+		if (image->buffer_view) {
+			cgltf_buffer_view* view = image->buffer_view;
+			cgltf_buffer* buffer = view->buffer;
+			unsigned char* bytes = (unsigned char*)buffer->data + view->offset;
+			i32 size = (i32)view->size;
+
+			i32 width = 0, height = 0, nChannels = 0;
+			unsigned char* pixels = stbi_load_from_memory(bytes, size, &width, &height, &nChannels, 4);
+
+			if (!pixels) {
+				printf("Failed to load image");
+				continue;
+			}
+
+			result->textures[i] = {
+				.data = pixels,
+				.width = width,
+				.height = height,
+				.dataSize = size
+			};
+
+		} else if (image->uri) {
+			printf("Image URI loading not implemented.");
+			Assert(false);
+		}
+	}
+
 
 	printf("Loaded %zu meshes", data->meshes_count);
 
