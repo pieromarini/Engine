@@ -6,6 +6,7 @@
 #include "core/math/vector.h"
 #include "core/memory/arena.h"
 #include "core/thread_context.h"
+#include "core/perf/scope_profiler.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
@@ -64,6 +65,8 @@ struct Scene {
 };
 
 inline Scene* parseGLTF(Arena* arena, String8 path) {
+	PerfScope;
+
 	Scene* result = PushStruct(arena, Scene);
 
 	cgltf_options options = {};
@@ -213,11 +216,11 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 		if (image->buffer_view) {
 			cgltf_buffer_view* view = image->buffer_view;
 			cgltf_buffer* buffer = view->buffer;
-			unsigned char* bytes = (unsigned char*)buffer->data + view->offset;
+			u8* bytes = (u8*)buffer->data + view->offset;
 			i32 size = (i32)view->size;
 
 			i32 width = 0, height = 0, nChannels = 0;
-			unsigned char* pixels = stbi_load_from_memory(bytes, size, &width, &height, &nChannels, 4);
+			u8* pixels = stbi_load_from_memory(bytes, size, &width, &height, &nChannels, 4);
 
 			if (!pixels) {
 				printf("Failed to load image");
@@ -230,7 +233,6 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 				.height = height,
 				.dataSize = size
 			};
-
 		} else if (image->uri) {
 			printf("Image URI loading not implemented.");
 			Assert(false);

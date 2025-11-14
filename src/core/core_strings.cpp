@@ -54,10 +54,10 @@ String8 Str8(u8* str, u64 size) {
 	return string;
 }
 
-String8 Str8Range(u8* first, u8* one_past_last) {
+String8 Str8Range(u8* first, u8* onePastLast) {
 	String8 string{};
 	string.str = first;
-	string.size = (u64)(one_past_last - first);
+	string.size = (u64)(onePastLast - first);
 	return string;
 }
 
@@ -91,7 +91,7 @@ String8 PushStr8FV(Arena* arena, const char* fmt, va_list args) {
 	u64 neededBytes = stbsp_vsnprintf(nullptr, 0, fmt, args) + 1;
 	result.str = PushArrayNoZero(arena, u8, neededBytes);
 	result.size = neededBytes - 1;
-	stbsp_vsnprintf((char*)result.str, neededBytes, fmt, args2);
+	stbsp_vsnprintf((char*)result.str, (i32)neededBytes, fmt, args2);
 	return result;
 }
 

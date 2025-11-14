@@ -10,7 +10,7 @@ ProfileBlock::ProfileBlock(char const* _label, u32 _index) {
 	parentIndex = globalProfilerParent;
 
 	anchorIndex = _index;
-	Label = _label;
+	label = _label;
 
 	ProfileAnchor* Anchor = globalProfiler.anchors + anchorIndex;
 	oldTSCElapsedInclusive = Anchor->tscElapsedInclusive;
@@ -31,12 +31,12 @@ ProfileBlock::~ProfileBlock() {
 	anchor->tscElapsedInclusive = oldTSCElapsedInclusive + elapsed;
 	++anchor->hitCount;
 
-	anchor->label = Label;
+	anchor->label = label;
 }
 
-static void PrintTimeElapsed(u64 TotalTSCElapsed, ProfileAnchor* Anchor) {
+static void PrintTimeElapsed(u64 TotalTSCElapsed, ProfileAnchor* Anchor, u64 cpuFreq) {
 	f64 Percent = 100.0 * ((f64)Anchor->tscElapsedExclusive / (f64)TotalTSCElapsed);
-	printf("  %s[%llu]: %llu (%.2f%%", Anchor->label, Anchor->hitCount, Anchor->tscElapsedExclusive, Percent);
+	printf("  %s[%llu]: %.4fms (%.2f%%", Anchor->label, Anchor->hitCount, (f64)Anchor->tscElapsedExclusive / (f64)cpuFreq, Percent);
 	if (Anchor->tscElapsedInclusive != Anchor->tscElapsedExclusive) {
 		f64 PercentWithChildren = 100.0 * ((f64)Anchor->tscElapsedInclusive / (f64)TotalTSCElapsed);
 		printf(", %.2f%% w/children", PercentWithChildren);
@@ -50,18 +50,18 @@ static void BeginProfile() {
 
 static void EndProfile() {
 	globalProfiler.endTSC = OS_readCPUTimer();
-	u64 CPUFreq = OS_estimateCPUTimerFreq();
+	u64 cpuFreq = OS_estimateCPUTimerFreq();
 
-	u64 TotalCPUElapsed = globalProfiler.endTSC - globalProfiler.startTSC;
+	u64 totalCPUElapsed = globalProfiler.endTSC - globalProfiler.startTSC;
 
-	if (CPUFreq) {
-		printf("\nTotal time: %0.4fms (CPU freq %llu)\n", 1000.0 * (f64)TotalCPUElapsed / (f64)CPUFreq, CPUFreq);
+	if (cpuFreq) {
+		printf("\nTotal time: %0.4fms (CPU freq %.2f GHz)\n", 1000.0 * (f64)totalCPUElapsed / (f64)cpuFreq, (f32)cpuFreq / 1e9);
 	}
 
-	for (u32 AnchorIndex = 0; AnchorIndex < ArrayCount(globalProfiler.anchors); ++AnchorIndex) {
-		ProfileAnchor* Anchor = globalProfiler.anchors + AnchorIndex;
-		if (Anchor->tscElapsedInclusive) {
-			PrintTimeElapsed(TotalCPUElapsed, Anchor);
+	for (u32 index = 0; index < ArrayCount(globalProfiler.anchors); ++index) {
+		ProfileAnchor* anchor = globalProfiler.anchors + index;
+		if (anchor->tscElapsedInclusive) {
+			PrintTimeElapsed(totalCPUElapsed, anchor, cpuFreq);
 		}
 	}
 }

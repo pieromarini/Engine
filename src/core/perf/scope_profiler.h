@@ -16,10 +16,10 @@ struct Profiler {
 };
 
 struct ProfileBlock {
-	ProfileBlock(char const* _label, u32 _index);
+	ProfileBlock(const char* _label, u32 _index);
 	~ProfileBlock();
 
-	char const* Label;
+	const char* label;
 	u64 oldTSCElapsedInclusive;
 	u64 startTSC;
 	u32 parentIndex;
@@ -35,11 +35,12 @@ struct ProfileBlock {
 
 #else
 
+#define PerfBlock(Name)
 #define PerfScope
 
 #endif
 
-static void PrintTimeElapsed(u64 TotalTSCElapsed, ProfileAnchor* Anchor);
+static void PrintTimeElapsed(u64 TotalTSCElapsed, ProfileAnchor* Anchor, u64 cpuFreq);
 
 static void BeginProfile();
 static void EndProfile();
