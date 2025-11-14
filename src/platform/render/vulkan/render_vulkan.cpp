@@ -15,6 +15,10 @@
 
 per_thread RenderVkState* renderVkState;
 
+static FrameData& currentFrame() {
+	return renderVkState->frames[renderVkState->frameNumber % MAX_FRAMES];
+}
+
 void immediateSubmit(void (*fn)(VkCommandBuffer cmd)) {
 	VK_CHECK(vkResetFences(renderVkState->device, 1, &renderVkState->immFence));
 	VK_CHECK(vkResetCommandBuffer(renderVkState->immCommandBuffer, 0));
@@ -564,17 +568,6 @@ void recreateSwapchainIfNeeded(OSWindowHandle windowHandle, vec2 size) {
 	recreateSwapchain(renderVkState->swapchain, renderVkState->physicalDevice, renderVkState->device, renderVkState->surface, renderVkState->graphicsQueueFamily, windowHandle, swapchainFormat);
 }
 
-void Render_startWindow(OSWindowHandle windowHandle, vec2 size) {
-	if (renderVkState->swapchain->needsResize) {
-		recreateSwapchainIfNeeded(windowHandle, size);
-		renderVkState->swapchain->needsResize = false;
-	}
-}
-
-void Render_endWindow(OSWindowHandle windowHandle) {
-
-}
-
 VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, u32 mipLevel, u32 levelCount) {
 	VkImageAspectFlags aspectMask = (format == VK_FORMAT_D32_SFLOAT) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
@@ -600,6 +593,23 @@ static u32 selectMemoryType(const VkPhysicalDeviceMemoryProperties& memoryProper
 
 	Assert(!"No compatible memory type found");
 	return ~0u;
+}
+
+RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u8* data, u32 width, u32 height, u32 mipLevels, VkFormat format, VkImageUsageFlags usage) {
+	RenderVkImage* image = createImage(device, memoryProperties, width, height, mipLevels, format, usage);
+
+	VkCommandPool commandPool = currentFrame().commandPool;
+	VkCommandBuffer commandBuffer = currentFrame().commandBuffer;
+	VK_CHECK(vkResetCommandPool(device, commandPool, 0));
+
+	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+
+	vkEndCommandBuffer(commandBuffer);
+
+	return image;
 }
 
 RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u32 width, u32 height, u32 mipLevels, VkFormat format, VkImageUsageFlags usage) {
@@ -961,8 +971,21 @@ void Render_loadScene(String8 path) {
 	}
 }
 
+void Render_startWindow(OSWindowHandle windowHandle, vec2 size) {
+	if (renderVkState->swapchain->needsResize) {
+		recreateSwapchainIfNeeded(windowHandle, size);
+		renderVkState->swapchain->needsResize = false;
+	}
+}
+
+void Render_endWindow(OSWindowHandle windowHandle) {
+
+}
+
 // Init subsystem
 void Render_init() {
+	PerfScope;
+
 	Arena* arena = arenaAlloc(Gigabytes(4));
 	renderVkState = PushStruct(arena, RenderVkState);
 	renderVkState->arena = arena;
@@ -1101,6 +1124,7 @@ void initDescriptors() {
 }
 
 void initPipelines() {
+	PerfScope;
 	// mesh pipeline
 	VkShaderModule meshVertexShader = nullptr;
 	if (!loadShaderModule("../res/shaders/triangle.vert.spv", renderVkState->device, &meshVertexShader)) {
@@ -1201,11 +1225,9 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 	renderVkState->meshPushConstants = PushStruct(renderVkState->arena, MeshPushConstants);
 }
 
-inline FrameData& currentFrame() {
-	return renderVkState->frames[renderVkState->frameNumber % MAX_FRAMES];
-}
-
 void Render_update() {
+	PerfScope;
+
 	VK_CHECK(vkWaitForFences(renderVkState->device, 1, &currentFrame().renderFence, true, 1000000000));
 
 	u32 swapchainImageIndex{};
@@ -1247,12 +1269,26 @@ void Render_update() {
 		.layerCount = 1
 	};
 
-	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	VkImageMemoryBarrier2 clearImageBarrier = imageBarrier(renderVkState->drawImage->image,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	pipelineBarrier(cmd, 0, 0, nullptr, 1, &clearImageBarrier);
 
 	vkCmdClearColorImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &ranges);
 
-	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	transitionImage(cmd, renderVkState->depthImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+	VkImageMemoryBarrier2 drawImageBarrier = imageBarrier(renderVkState->drawImage->image,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+	VkImageMemoryBarrier2 depthImageBarrier = imageBarrier(renderVkState->depthImage->image,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+	VkImageMemoryBarrier2 renderBarriers[] = {
+		drawImageBarrier,
+		depthImageBarrier
+	};
+	pipelineBarrier(cmd, 0, 0, nullptr, 2, renderBarriers);
 
 	VkRenderingAttachmentInfo colorAttachment = attachmentInfo(renderVkState->drawImage->imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(renderVkState->depthImage->imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
@@ -1293,12 +1329,26 @@ void Render_update() {
 
 	vkCmdEndRendering(cmd);
 
-	transitionImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-	transitionImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	VkImageMemoryBarrier2 copyDrawImageBarrier = imageBarrier(renderVkState->drawImage->image,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+	VkImageMemoryBarrier2 preSwapchainBarrier = imageBarrier(renderVkState->swapchain->images[swapchainImageIndex],
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	VkImageMemoryBarrier2 barriers[] = {
+		copyDrawImageBarrier,
+		preSwapchainBarrier
+	};
+	pipelineBarrier(cmd, 0, 0, nullptr, 2, barriers);
 
 	copyImageToImage(cmd, renderVkState->drawImage->image, renderVkState->swapchain->images[swapchainImageIndex], renderVkState->drawExtent, renderVkState->drawExtent);
 
-	transitionImage(cmd, renderVkState->swapchain->images[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	VkImageMemoryBarrier2 postSwapchainBarrier = imageBarrier(renderVkState->swapchain->images[swapchainImageIndex],
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	pipelineBarrier(cmd, 0, 0, nullptr, 1, &postSwapchainBarrier);
 
 	VK_CHECK(vkEndCommandBuffer(cmd));
 

@@ -173,6 +173,7 @@ static u32 selectMemoryType(const VkPhysicalDeviceMemoryProperties& memoryProper
 
 VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, u32 mipLevel, u32 levelCount);
 RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u32 width, u32 height, u32 mipLevels, VkFormat format, VkImageUsageFlags usage);
+RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u8* data, u32 width, u32 height, u32 mipLevels, VkFormat format, VkImageUsageFlags usage);
 void destroyImage(VkDevice device, RenderVkImage* image);
 
 RenderVkBuffer createBuffer(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u32 size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryFlags);

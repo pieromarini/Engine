@@ -4,43 +4,8 @@
 
 #include <volk/volk.h>
 
-inline void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout) {
-	VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
-	imageBarrier.pNext = nullptr;
-
-	// TODO(piero): This is inneficient. We should do more fine-grained transitions
-	imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-	imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
-	imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-	imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
-
-	imageBarrier.oldLayout = currentLayout;
-	imageBarrier.newLayout = newLayout;
-
-	VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-
-	VkImageSubresourceRange subImage{};
-	subImage.aspectMask = aspectMask;
-	subImage.baseMipLevel = 0;
-	subImage.levelCount = VK_REMAINING_MIP_LEVELS;
-	subImage.baseArrayLayer = 0;
-	subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-	imageBarrier.subresourceRange = subImage;
-	imageBarrier.image = image;
-
-	VkDependencyInfo depInfo{};
-	depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-	depInfo.pNext = nullptr;
-
-	depInfo.imageMemoryBarrierCount = 1;
-	depInfo.pImageMemoryBarriers = &imageBarrier;
-
-	vkCmdPipelineBarrier2(cmd, &depInfo);
-}
-
 inline void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize) {
-	VkImageBlit2 blitRegion{ .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr };
+	VkImageBlit2 blitRegion{ .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2 };
 
 	blitRegion.srcOffsets[1].x = (i32)srcSize.width;
 	blitRegion.srcOffsets[1].y = (i32)srcSize.height;
@@ -70,4 +35,51 @@ inline void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destin
 	blitInfo.pRegions = &blitRegion;
 
 	vkCmdBlitImage2(cmd, &blitInfo);
+}
+
+inline VkImageMemoryBarrier2 imageBarrier(VkImage image, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkImageLayout oldLayout, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask, VkImageLayout newLayout, VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, uint32_t baseMipLevel = 0, uint32_t levelCount = VK_REMAINING_MIP_LEVELS) {
+	VkImageMemoryBarrier2 result = { .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+
+	result.srcStageMask = srcStageMask;
+	result.srcAccessMask = srcAccessMask;
+	result.dstStageMask = dstStageMask;
+	result.dstAccessMask = dstAccessMask;
+	result.oldLayout = oldLayout;
+	result.newLayout = newLayout;
+	result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	result.image = image;
+	result.subresourceRange.aspectMask = aspectMask;
+	result.subresourceRange.baseMipLevel = baseMipLevel;
+	result.subresourceRange.levelCount = levelCount;
+	result.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+	return result;
+}
+
+inline VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) {
+	VkBufferMemoryBarrier2 result = { .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2 };
+
+	result.srcStageMask = srcStageMask;
+	result.srcAccessMask = srcAccessMask;
+	result.dstStageMask = dstStageMask;
+	result.dstAccessMask = dstAccessMask;
+	result.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	result.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	result.buffer = buffer;
+	result.offset = 0;
+	result.size = VK_WHOLE_SIZE;
+
+	return result;
+}
+
+inline void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount, const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount, const VkImageMemoryBarrier2* imageBarriers) {
+	VkDependencyInfo dependencyInfo = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dependencyInfo.dependencyFlags = dependencyFlags;
+	dependencyInfo.bufferMemoryBarrierCount = (u32)bufferBarrierCount;
+	dependencyInfo.pBufferMemoryBarriers = bufferBarriers;
+	dependencyInfo.imageMemoryBarrierCount = (u32)imageBarrierCount;
+	dependencyInfo.pImageMemoryBarriers = imageBarriers;
+
+	vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
 }
