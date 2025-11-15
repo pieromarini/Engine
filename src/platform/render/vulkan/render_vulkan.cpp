@@ -532,26 +532,6 @@ SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDev
 
 	destroySwapchain(device, oldSwapchain);
 
-	/*
-	// Update descriptor set using drawImage
-	VkDescriptorImageInfo imgInfo{
-		.sampler = nullptr,
-		.imageView = renderVkState->drawImage->imageView,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL
-	};
-
-	VkWriteDescriptorSet setWrite{
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.pNext = nullptr,
-		.dstSet = renderVkState->computeSet,
-		.dstBinding = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.pImageInfo = &imgInfo
-	};
-	vkUpdateDescriptorSets(renderVkState->device, 1, &setWrite, 0, nullptr);
-	*/
-
 	return Swapchain_Resized;
 }
 
@@ -595,6 +575,7 @@ static u32 selectMemoryType(const VkPhysicalDeviceMemoryProperties& memoryProper
 	return ~0u;
 }
 
+// TODO(piero): We should batch these image uploads and use a transfer queue
 RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& memoryProperties, u8* data, u32 width, u32 height, u32 mipLevels, VkFormat format, VkImageUsageFlags usage) {
 	RenderVkImage* image = createImage(device, memoryProperties, width, height, mipLevels, format, usage);
 
@@ -607,7 +588,41 @@ RenderVkImage* createImage(VkDevice device, VkPhysicalDeviceMemoryProperties& me
 
 	VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
+	VkImageMemoryBarrier2 preBarrier = imageBarrier(image->image,
+	    0, 0, VK_IMAGE_LAYOUT_UNDEFINED,
+	    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	pipelineBarrier(commandBuffer, 0, 0, nullptr, 1, &preBarrier);
+
+	u32 bufferOffset = 0;
+	u32 mipWidth = width;
+	u32 mipHeight = height;
+
+	u32 imageSize = width * height * 4; // assumes uncompressed images
+	memcpy(renderVkState->scratchBuffer.data, data, imageSize);
+
+	Assert(renderVkState->scratchBuffer.size >= imageSize);
+
+	// TODO(piero): handle mip levels
+	VkBufferImageCopy region = {
+		.bufferOffset = bufferOffset,
+		.bufferRowLength = 0,
+		.bufferImageHeight = 0,
+		.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+		.imageOffset = { 0, 0, 0 },
+		.imageExtent = { mipWidth, mipHeight, 1 },
+	};
+	vkCmdCopyBufferToImage(commandBuffer, renderVkState->scratchBuffer.buffer, image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	stageBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+
 	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	VK_CHECK(vkQueueSubmit(renderVkState->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK(vkDeviceWaitIdle(device));
 
 	return image;
 }
@@ -782,10 +797,10 @@ VkDescriptorSetLayout buildDescriptorLayout(VkDescriptorSetLayoutBinding* bindin
 
 	VkDescriptorSetLayoutCreateInfo info{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			.pNext = nullptr,
-			.flags = flags,
-			.bindingCount = numBindings,
-			.pBindings = bindings,
+		.pNext = nullptr,
+		.flags = flags,
+		.bindingCount = numBindings,
+		.pBindings = bindings,
 	};
 
 	VK_CHECK(vkCreateDescriptorSetLayout(renderVkState->device, &info, nullptr, &result));
@@ -798,11 +813,11 @@ VkDescriptorPool buildDescriptorPool(u32 maxSets, VkDescriptorPoolSize* poolSize
 
 	VkDescriptorPoolCreateInfo info {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			.pNext = nullptr,
-			.flags = 0,
-			.maxSets = maxSets,
-			.poolSizeCount = poolSizesCount,
-			.pPoolSizes = poolSizes
+		.pNext = nullptr,
+		.flags = 0,
+		.maxSets = maxSets,
+		.poolSizeCount = poolSizesCount,
+		.pPoolSizes = poolSizes
 	};
 	vkCreateDescriptorPool(renderVkState->device, &info, nullptr, &result);
 
@@ -935,9 +950,10 @@ VkPipeline buildPipeline(VkDevice device, VkPipelineLayout pipelineLayout, VkPip
 void Render_loadScene(String8 path) {
 	PerfScope;
 
-	Scene* scene = parseGLTF(renderVkState->sceneArena, path);
+	Model* model = parseGLTF(renderVkState->sceneArena, path);
+	Assert(model->valid);
 
-	Assert(scene->valid);
+	Temp scratch = ScratchBegin();
 
 	VkCommandPool commandPool = renderVkState->frames[0].commandPool;
 	VkCommandBuffer commandBuffer = renderVkState->frames[0].commandBuffer;
@@ -948,27 +964,110 @@ void Render_loadScene(String8 path) {
 	VkBufferUsageFlags vertexUsage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
  	VkBufferUsageFlags indexUsage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-	for (u32 i = 0; i < scene->meshCount; ++i) {
-		Mesh& mesh = scene->meshes[i];
+	Geometry* geometry = model->geometry;
 
-		GPUMesh* gpuMesh = PushStruct(renderVkState->arena, GPUMesh);
-		DLLPushBack(renderVkState->firstMesh, renderVkState->lastMesh, gpuMesh);
-		renderVkState->meshCount++;
+	GPUMesh* gpuMesh = PushStruct(renderVkState->arena, GPUMesh);
+	DLLPushBack(renderVkState->firstMesh, renderVkState->lastMesh, gpuMesh);
+	renderVkState->meshCount++;
 
-		gpuMesh->vertexBuffer = createBuffer(renderVkState->device, memoryProperties, mesh.vertexCount * sizeof(Vertex), vertexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		gpuMesh->indexBuffer = createBuffer(renderVkState->device, memoryProperties, mesh.indexCount * sizeof(u32), indexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->vertexBuffer = createBuffer(renderVkState->device, memoryProperties, geometry->vertexCount * sizeof(Vertex), vertexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->indexBuffer = createBuffer(renderVkState->device, memoryProperties, geometry->indexCount * sizeof(u32), indexUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-		gpuMesh->vertexCount = mesh.vertexCount;
-		gpuMesh->indexCount = mesh.indexCount;
+	gpuMesh->vertexCount = geometry->vertexCount;
+	gpuMesh->indexCount = geometry->indexCount;
 
-		uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->vertexBuffer, renderVkState->scratchBuffer, mesh.vertices, mesh.vertexCount * sizeof(Vertex));
-		uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->indexBuffer, renderVkState->scratchBuffer, mesh.indices, mesh.indexCount * sizeof(u32));
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->vertexBuffer, renderVkState->scratchBuffer, geometry->vertices, geometry->vertexCount * sizeof(Vertex));
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->indexBuffer, renderVkState->scratchBuffer, geometry->indices, geometry->indexCount * sizeof(u32));
 
-		gpuMesh->vertexAddress = getBufferAddress(renderVkState->device, gpuMesh->vertexBuffer);
+	gpuMesh->vertexAddress = getBufferAddress(renderVkState->device, gpuMesh->vertexBuffer);
 
-		// TODO(piero): This is not 100% correct because we are only considering transforms from meshes when parsing but regular GLTF nodes can also have transformations.
-		gpuMesh->modelMatrix = scene->transforms[i];
+	for (u32 i = 0; i < model->materialCount; ++i) {
+		Material* material = &model->materials[i];
 	}
+
+	for (u32 i = 0; i < model->textureCount; ++i) {
+		Texture* texture = &model->textures[i];
+		RenderVkImage* image = createImage(renderVkState->device, memoryProperties, texture->data, texture->width, texture->height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	}
+
+	// 1 draw command per GLTF primitive
+	u32 numDrawCalls = model->primitivesCount;
+
+	MeshDrawCommand* drawCommands = PushArray(scratch.arena, MeshDrawCommand, numDrawCalls);
+
+	for (u32 i = 0; i < numDrawCalls; ++i) {
+		drawCommands[i] = {
+			.drawId = i,
+			.indirect = {
+				.indexCount = model->primitives[i].indexCount,
+				.instanceCount = 1,
+				.firstIndex = model->primitives[i].firstIndex,
+				.vertexOffset = model->primitives[i].vertexOffset,
+				.firstInstance = i
+			}
+		};
+	}
+
+	gpuMesh->drawCommandBuffer = createBuffer(renderVkState->device, memoryProperties, numDrawCalls * sizeof(MeshDrawCommand), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->drawCommandCount = numDrawCalls;
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->drawCommandBuffer, renderVkState->scratchBuffer, drawCommands, numDrawCalls * sizeof(MeshDrawCommand));
+
+	gpuMesh->drawDataBuffer = createBuffer(renderVkState->device, memoryProperties, model->drawDataCount * sizeof(MeshDrawData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->drawDataBuffer, renderVkState->scratchBuffer, model->drawData, model->drawDataCount * sizeof(MeshDrawData));
+
+	gpuMesh->materialDataBuffer = createBuffer(renderVkState->device, memoryProperties, model->materialCount * sizeof(Material), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->materialCount = model->materialCount;
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->materialDataBuffer, renderVkState->scratchBuffer, model->materials, model->materialCount * sizeof(Material));
+
+	// Write descriptor set
+	VkDescriptorBufferInfo materialDataInfo{
+		.buffer = gpuMesh->materialDataBuffer.buffer,
+		.offset = 0,
+		.range = gpuMesh->materialCount * sizeof(Material)
+	};
+	VkDescriptorBufferInfo drawCommandsInfo{
+		.buffer = gpuMesh->drawCommandBuffer.buffer,
+		.offset = 0,
+		.range = gpuMesh->drawCommandCount * sizeof(MeshDrawCommand)
+	};
+	VkDescriptorBufferInfo drawDataInfo{
+		.buffer = gpuMesh->drawDataBuffer.buffer,
+		.offset = 0,
+		.range = gpuMesh->drawCommandCount * sizeof(MeshDrawData)
+	};
+
+	VkWriteDescriptorSet writes[] = {
+		{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = nullptr,
+			.dstSet = renderVkState->drawDataDescriptorSet,
+			.dstBinding = 0,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.pBufferInfo = &materialDataInfo
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = nullptr,
+			.dstSet = renderVkState->drawDataDescriptorSet,
+			.dstBinding = 1,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.pBufferInfo = &drawCommandsInfo
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = nullptr,
+			.dstSet = renderVkState->drawDataDescriptorSet,
+			.dstBinding = 2,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.pBufferInfo = &drawDataInfo
+		}
+	};
+	vkUpdateDescriptorSets(renderVkState->device, ArrayCount(writes), writes, 0, nullptr);
+
+	ScratchEnd(scratch);
 }
 
 void Render_startWindow(OSWindowHandle windowHandle, vec2 size) {
@@ -1097,28 +1196,48 @@ void initDescriptors() {
 	Temp scratch = ScratchBegin();
 
 	u32 maxSets = 10;
-	u32 poolSizesCount = 1;
+	u32 poolSizesCount = 3;
 	VkDescriptorPoolSize* poolSizes = PushArray(scratch.arena, VkDescriptorPoolSize, poolSizesCount);
 	poolSizes[0] = {
 		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = 1 * maxSets
 	};
+	poolSizes[1] = {
+		.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 3 * maxSets
+	};
+	poolSizes[2] = {
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorCount = 3 * maxSets
+	};
 	renderVkState->descriptorPool = buildDescriptorPool(maxSets, poolSizes, poolSizesCount);
 
-	/*
-	u32 bindingsCount = 1;
+	u32 bindingsCount = 3;
 	VkDescriptorSetLayoutBinding* bindings = PushArray(scratch.arena, VkDescriptorSetLayoutBinding, bindingsCount);
 	bindings[0] = {
 		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		.pImmutableSamplers = nullptr
 	};
-	renderVkState->computeLayout = buildDescriptorLayout(bindings, bindingsCount, 0);
+	bindings[1] = {
+		.binding = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		.pImmutableSamplers = nullptr
+	};
+	bindings[2] = {
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		.pImmutableSamplers = nullptr
+	};
 
-	renderVkState->computeSet = buildDescriptorSet(renderVkState->descriptorPool, renderVkState->computeLayout);
-	*/
+	renderVkState->drawDataLayout = buildDescriptorLayout(bindings, bindingsCount, 0);
+	renderVkState->drawDataDescriptorSet = buildDescriptorSet(renderVkState->descriptorPool, renderVkState->drawDataLayout);
 
 	ScratchEnd(scratch);
 }
@@ -1144,8 +1263,8 @@ void initPipelines() {
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.flags = 0,
-		.setLayoutCount = 0,
-		.pSetLayouts = nullptr,
+		.setLayoutCount = 1,
+		.pSetLayouts = &renderVkState->drawDataLayout,
 		.pushConstantRangeCount = 1,
 		.pPushConstantRanges = &range
 	};
@@ -1202,26 +1321,6 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 
 	initPipelines();
 
-	/*
-	// Write to descriptor set
-	VkDescriptorImageInfo imgInfo{
-		.sampler = nullptr,
-		.imageView = renderVkState->drawImage->imageView,
-		.imageLayout = VK_IMAGE_LAYOUT_GENERAL
-	};
-
-	VkWriteDescriptorSet setWrite{
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.pNext = nullptr,
-		.dstSet = renderVkState->computeSet,
-		.dstBinding = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-		.pImageInfo = &imgInfo
-	};
-	vkUpdateDescriptorSets(renderVkState->device, 1, &setWrite, 0, nullptr);
-	*/
-	
 	renderVkState->meshPushConstants = PushStruct(renderVkState->arena, MeshPushConstants);
 }
 
@@ -1319,12 +1418,14 @@ void Render_update() {
 	// Render meshes
 	for (GPUMesh* mesh = renderVkState->firstMesh; mesh != nullptr; mesh = mesh->next) {
 		renderVkState->meshPushConstants->vertexAddress = mesh->vertexAddress;
-		renderVkState->meshPushConstants->mvp = projection * view * mesh->modelMatrix;
+		renderVkState->meshPushConstants->viewProj = projection * view;
 
-		vkCmdPushConstants(cmd, renderVkState->meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(MeshPushConstants), renderVkState->meshPushConstants);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipelineLayout, 0, 1, &renderVkState->drawDataDescriptorSet, 0, nullptr);
 
 		vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(cmd, mesh->indexCount, 1, 0, 0, 0);
+
+		vkCmdPushConstants(cmd, renderVkState->meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(MeshPushConstants), renderVkState->meshPushConstants);
+		vkCmdDrawIndexedIndirect(cmd, mesh->drawCommandBuffer.buffer, OffsetOf(MeshDrawCommand, indirect), mesh->drawCommandCount, sizeof(MeshDrawCommand));
 	}
 
 	vkCmdEndRendering(cmd);

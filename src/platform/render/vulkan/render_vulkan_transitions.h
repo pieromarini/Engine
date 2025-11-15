@@ -74,7 +74,7 @@ inline VkBufferMemoryBarrier2 bufferBarrier(VkBuffer buffer, VkPipelineStageFlag
 }
 
 inline void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dependencyFlags, size_t bufferBarrierCount, const VkBufferMemoryBarrier2* bufferBarriers, size_t imageBarrierCount, const VkImageMemoryBarrier2* imageBarriers) {
-	VkDependencyInfo dependencyInfo = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	VkDependencyInfo dependencyInfo = { .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
 	dependencyInfo.dependencyFlags = dependencyFlags;
 	dependencyInfo.bufferMemoryBarrierCount = (u32)bufferBarrierCount;
 	dependencyInfo.pBufferMemoryBarriers = bufferBarriers;
@@ -82,4 +82,27 @@ inline void pipelineBarrier(VkCommandBuffer commandBuffer, VkDependencyFlags dep
 	dependencyInfo.pImageMemoryBarriers = imageBarriers;
 
 	vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+}
+
+inline void stageBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 srcStageMask, VkAccessFlags2 srcAccessMask, VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) {
+	VkMemoryBarrier2 memoryBarrier = { .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2 };
+	memoryBarrier.srcStageMask = srcStageMask;
+	memoryBarrier.srcAccessMask = srcAccessMask;
+	memoryBarrier.dstStageMask = dstStageMask;
+	memoryBarrier.dstAccessMask = dstAccessMask;
+
+	VkDependencyInfo dependencyInfo = { .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+	dependencyInfo.memoryBarrierCount = 1;
+	dependencyInfo.pMemoryBarriers = &memoryBarrier;
+
+	vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+}
+
+inline void stageBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 srcStageMask, VkPipelineStageFlags2 dstStageMask) {
+	VkAccessFlags2 accessFlags = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+	stageBarrier(commandBuffer, srcStageMask, accessFlags, dstStageMask, accessFlags);
+}
+
+inline void stageBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stageMask) {
+	stageBarrier(commandBuffer, stageMask, stageMask);
 }

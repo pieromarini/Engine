@@ -22,7 +22,7 @@ struct Vertex {
 	vec4 color;
 };
 
-struct Material {
+struct alignas(16) Material {
 	i32 albedo;
 	i32 normal;
 	i32 specular;
@@ -40,7 +40,7 @@ struct Texture {
 	i32 dataSize;
 };
 
-struct Mesh {
+struct Geometry {
 	Vertex* vertices;
 	u32 vertexCount;
 
@@ -48,12 +48,25 @@ struct Mesh {
 	u32 indexCount;
 };
 
-struct Scene {
-	Mesh* meshes;
-	u32 meshCount;
+struct GeometryPrimitive {
+	u32 indexCount;
+	u32 firstIndex;
+	i32 vertexOffset;
+};
 
-	mat4* transforms;
-	u32 transformCount;
+struct GeometryDrawData {
+	mat4 transform;
+	u32 materialIndex;
+	f32 padding[3];
+};
+
+struct Model {
+	Geometry* geometry;
+	GeometryPrimitive* primitives;
+	u32 primitivesCount;
+
+	GeometryDrawData* drawData;
+	u32 drawDataCount;
 
 	Material* materials;
 	u32 materialCount;
@@ -64,10 +77,10 @@ struct Scene {
 	b32 valid;
 };
 
-inline Scene* parseGLTF(Arena* arena, String8 path) {
+inline Model* parseGLTF(Arena* arena, String8 path) {
 	PerfScope;
 
-	Scene* result = PushStruct(arena, Scene);
+	Model* result = PushStruct(arena, Model);
 
 	cgltf_options options = {};
 	cgltf_data* data = nullptr;
@@ -87,12 +100,52 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 		return result;
 	}
 
-	result->meshes = PushArray(arena, Mesh, data->meshes_count);
-	result->meshCount = data->meshes_count;
+	result->geometry = PushStruct(arena, Geometry);
+
+	Geometry* geometry = result->geometry;
+
+	u32 modelVertexCount = 0;
+	u32 modelIndexCount = 0;
+	u32 modelPrimitiveCount = 0;
+
+	result->textures = PushArray(arena, Texture, data->textures_count);
+	result->textureCount = data->textures_count;
+	for (u32 i = 0; i < data->textures_count; ++i) {
+		cgltf_texture* texture = &data->textures[i];
+		Assert(texture->image);
+
+		u32 textureIndex = cgltf_texture_index(data, texture);
+
+		cgltf_image* image = texture->image;
+		if (image->buffer_view) {
+			cgltf_buffer_view* view = image->buffer_view;
+			cgltf_buffer* buffer = view->buffer;
+			u8* bytes = (u8*)buffer->data + view->offset;
+			i32 size = (i32)view->size;
+
+			i32 width = 0, height = 0, nChannels = 0;
+			u8* pixels = stbi_load_from_memory(bytes, size, &width, &height, &nChannels, 4);
+
+			if (!pixels) {
+				printf("Failed to load image");
+				continue;
+			}
+
+			result->textures[textureIndex] = {
+				.data = pixels,
+				.width = width,
+				.height = height,
+				.dataSize = size
+			};
+		} else if (image->uri) {
+			printf("Image URI loading not implemented.");
+			Assert(false);
+		}
+	}
+
 
 	for (u32 i = 0; i < data->meshes_count; ++i) {
 		cgltf_mesh& cmesh = data->meshes[i];
-		Mesh* mesh = &result->meshes[i];
 
 		for (u32 pi = 0; pi < cmesh.primitives_count; ++pi) {
 			cgltf_primitive& primitive = cmesh.primitives[pi];
@@ -101,11 +154,57 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 				continue;
 			}
 
-			u32 vertexCount = primitive.attributes[0].data->count;
+			for (u32 j = 0; j < primitive.attributes_count; ++j) {
+				if (primitive.attributes[j].type == cgltf_attribute_type_position) {
+					modelVertexCount += primitive.attributes[j].data->count;
+				}
+			}
+			modelIndexCount += primitive.indices->count;
+			modelPrimitiveCount++;
+		}
+	}
+
+	geometry->vertices = PushArray(arena, Vertex, modelVertexCount);
+	geometry->vertexCount = modelVertexCount;
+
+	geometry->indices = PushArray(arena, u32, modelIndexCount);
+	geometry->indexCount = modelIndexCount;
+
+	result->primitives = PushArray(arena, GeometryPrimitive, modelPrimitiveCount);
+	result->primitivesCount = modelPrimitiveCount;
+
+	result->drawData = PushArray(arena, GeometryDrawData, modelPrimitiveCount);
+	result->drawDataCount = modelPrimitiveCount;
+
+	u32 vertexOffset = 0;
+	u32 indexOffset = 0;
+	u32 primitiveIndex = 0;
+
+	for (u32 i = 0; i < data->meshes_count; ++i) {
+		cgltf_mesh& cmesh = data->meshes[i];
+
+		for (u32 pi = 0; pi < cmesh.primitives_count; ++pi) {
+			cgltf_primitive& primitive = cmesh.primitives[pi];
+			if (primitive.type != cgltf_primitive_type_triangles || !primitive.indices) {
+				printf("[GLTF] Non triangle-based primitive or no indices.");
+				continue;
+			}
+
+			GeometryPrimitive* prim = &result->primitives[primitiveIndex];
+
+			const cgltf_accessor* posAcc = cgltf_find_accessor(&primitive, cgltf_attribute_type_position, 0);
+			if (!posAcc) {
+				printf("[GLTF] Primitive without positions.");
+				continue;
+			}
+			u32 vertexCount = (u32)posAcc->count;
 			u32 indexCount = primitive.indices->count;
 
-			mesh->vertices = PushArray(arena, Vertex, vertexCount);
-			mesh->indices = PushArray(arena, u32, indexCount);
+			// Fill primitive info for draw calls
+			prim->firstIndex = indexOffset;
+			prim->vertexOffset = (i32)vertexOffset;
+			prim->indexCount = indexCount;
+			result->drawData[primitiveIndex].materialIndex = cgltf_material_index(data, primitive.material);
 
 			Temp scratch = ScratchBegin(&arena, 1);
 
@@ -116,7 +215,7 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 				cgltf_accessor_unpack_floats(pos, scratchBuffer, vertexCount * 3);
 
 				for (u32 j = 0; j < vertexCount; ++j) {
-					mesh->vertices[j].position = { scratchBuffer[j * 3 + 0], scratchBuffer[j * 3 + 1], scratchBuffer[j * 3 + 2] };
+					geometry->vertices[vertexOffset + j].position = { scratchBuffer[j * 3 + 0], scratchBuffer[j * 3 + 1], scratchBuffer[j * 3 + 2] };
 				}
 			}
 
@@ -125,7 +224,7 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 				cgltf_accessor_unpack_floats(pos, scratchBuffer, vertexCount * 3);
 
 				for (u32 j = 0; j < vertexCount; ++j) {
-					mesh->vertices[j].normal = { scratchBuffer[j * 3 + 0], scratchBuffer[j * 3 + 1], scratchBuffer[j * 3 + 2] };
+					geometry->vertices[vertexOffset + j].normal = { scratchBuffer[j * 3 + 0], scratchBuffer[j * 3 + 1], scratchBuffer[j * 3 + 2] };
 				}
 			}
 
@@ -134,32 +233,32 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 				cgltf_accessor_unpack_floats(pos, scratchBuffer, vertexCount * 2);
 
 				for (u32 j = 0; j < vertexCount; ++j) {
-					mesh->vertices[j].tu = scratchBuffer[j * 2 + 0];
-					mesh->vertices[j].tv = scratchBuffer[j * 2 + 1];
+					geometry->vertices[vertexOffset + j].tu = scratchBuffer[j * 2 + 0];
+					geometry->vertices[vertexOffset + j].tv = scratchBuffer[j * 2 + 1];
 				}
 			}
 
 			ScratchEnd(scratch);
 
-			cgltf_accessor_unpack_indices(primitive.indices, mesh->indices, 4, indexCount);
+			cgltf_accessor_unpack_indices(primitive.indices, geometry->indices + indexOffset, 4, indexCount);
 
-			mesh->vertexCount = vertexCount;
-			mesh->indexCount = indexCount;
+			vertexOffset += vertexCount;
+			indexOffset += indexCount;
+			primitiveIndex++;
 		}
 	}
 
-	// NOTE(piero): nodes_count should be the higher bound for the amount we can expect.
-	result->transforms = PushArray(arena, mat4, data->nodes_count);
+	Assert(vertexOffset == modelVertexCount);
+
 	for (u32 i = 0; i < data->nodes_count; ++i) {
 		const cgltf_node* node = &data->nodes[i];
 
 		if (node->mesh) {
 			f32 matrix[16]{};
 			cgltf_node_transform_world(node, matrix);
-			u32 meshIndex = cgltf_mesh_index(data, node->mesh);
-			result->transforms[meshIndex] = matrixFromArray(matrix);
 
-			result->transformCount++;
+			u32 meshIndex = cgltf_mesh_index(data, node->mesh);
+			result->drawData[meshIndex].transform = matrixFromArray(matrix);
 		}
 	}
 
@@ -206,41 +305,7 @@ inline Scene* parseGLTF(Arena* arena, String8 path) {
 		mat->emissiveFactor = vec3{ material->emissive_factor[0], material->emissive_factor[1], material->emissive_factor[2] };
 	}
 
-	result->textures = PushArray(arena, Texture, data->textures_count);
-	result->textureCount = data->textures_count;
-	for (u32 i = 0; i < data->textures_count; ++i) {
-		cgltf_texture* texture = &data->textures[i];
-		Assert(texture->image);
-
-		cgltf_image* image = texture->image;
-		if (image->buffer_view) {
-			cgltf_buffer_view* view = image->buffer_view;
-			cgltf_buffer* buffer = view->buffer;
-			u8* bytes = (u8*)buffer->data + view->offset;
-			i32 size = (i32)view->size;
-
-			i32 width = 0, height = 0, nChannels = 0;
-			u8* pixels = stbi_load_from_memory(bytes, size, &width, &height, &nChannels, 4);
-
-			if (!pixels) {
-				printf("Failed to load image");
-				continue;
-			}
-
-			result->textures[i] = {
-				.data = pixels,
-				.width = width,
-				.height = height,
-				.dataSize = size
-			};
-		} else if (image->uri) {
-			printf("Image URI loading not implemented.");
-			Assert(false);
-		}
-	}
-
-
-	printf("Loaded %zu meshes", data->meshes_count);
+	printf("Loaded %zu meshes. Vertices: %u | Indices: %u", data->meshes_count, result->geometry->vertexCount, result->geometry->indexCount);
 
 	cgltf_free(data);
 

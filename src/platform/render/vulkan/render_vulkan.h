@@ -53,8 +53,20 @@ struct FrameData {
 };
 
 struct MeshPushConstants {
-	mat4 mvp;
+	mat4 viewProj;
 	VkDeviceAddress vertexAddress;
+};
+
+// Indirect command
+struct MeshDrawCommand {
+	uint32_t drawId;
+	VkDrawIndexedIndirectCommand indirect;
+};
+
+struct alignas(16) MeshDrawData {
+	mat4 transform;
+	u32 materialIndex;
+	f32 padding[3];
 };
 
 struct GPUMesh {
@@ -68,7 +80,12 @@ struct GPUMesh {
 	u32 vertexCount;
 	u32 indexCount;
 
-	mat4 modelMatrix;
+	RenderVkBuffer drawCommandBuffer;
+	u32 drawCommandCount;
+
+	RenderVkBuffer drawDataBuffer;
+	RenderVkBuffer materialDataBuffer;
+	u32 materialCount;
 };
 
 struct RenderVkState {
@@ -93,11 +110,8 @@ struct RenderVkState {
 
 	// Descriptors
 	VkDescriptorPool descriptorPool;
-
-	// VkDescriptorSetLayout computeLayout;
-	// VkDescriptorSet computeSet;
-	// VkPipeline computePipeline;
-	// VkPipelineLayout computePipelineLayout;
+	VkDescriptorSetLayout drawDataLayout;
+	VkDescriptorSet drawDataDescriptorSet;
 
 	// Pipelines
 	VkPipeline meshPipeline;
