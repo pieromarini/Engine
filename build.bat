@@ -34,15 +34,14 @@ if defined VULKAN_SDK (
 
 rem Compile GLSL shaders into SPIR-V
 if "%shaders%"=="1" (
-	set "GLSLC=!VULKAN_SDK!\Bin\glslc.exe"
+	set "GLSLC=!VULKAN_SDK!\Bin\glslangValidator.exe"
 
 	if exist "!GLSLC!" (
 		echo [Compiling GLSL shaders to SPIR-V...]
 		for %%F in (res\shaders\*.vert res\shaders\*.frag res\shaders\*.comp) do (
 			if exist "%%F" (
 				set "OUTFILE=res\shaders\%%~nF%%~xF.spv"
-				echo   %%~xF ^>^> !OUTFILE!
-				"!GLSLC!" "%%F" -o "!OUTFILE!" || (
+				"!GLSLC!" -V --target-env vulkan1.3 "%%F" -o "!OUTFILE!" || (
 					echo [ERROR] Shader compile failed: %%F
 					exit /b 1
 				)
