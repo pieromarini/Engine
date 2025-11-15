@@ -108,10 +108,18 @@ struct RenderVkState {
 
 	MeshPushConstants* meshPushConstants;
 
+	VkSampler defaultSampler;
+
 	// Descriptors
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSetLayout drawDataLayout;
 	VkDescriptorSet drawDataDescriptorSet;
+
+	// Bindless Textures
+	VkDescriptorSetLayout bindlessSetLayout;
+	VkDescriptorSet bindlessSet;
+
+	u32 bindlessTextureCount;
 
 	// Pipelines
 	VkPipeline meshPipeline;
@@ -232,6 +240,8 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 VkDescriptorSetLayout buildDescriptorLayout(VkDescriptorSetLayoutBinding* bindings, u32 numBindings, VkDescriptorSetLayoutCreateFlags flags);
 VkDescriptorPool buildDescriptorPool(u32 maxSets, VkDescriptorPoolSize* poolSizes, u32 poolSizesCount);
 VkDescriptorSet buildDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout);
+
+void buildBindlessTextureDescriptor(VkDescriptorSetLayout& descriptorSetLayout, VkDescriptorSet& descriptorSet);
 
 // Pipelines
 VkPipeline buildPipeline(VkDevice device, VkPipelineLayout pipelineLayout, VkPipelineShaderStageCreateInfo* shaderStages, u32 shaderStagesCount, VkPrimitiveTopology topology, VkPolygonMode mode, VkCullModeFlags cullMode, VkFrontFace frontFace, VkFormat colorAttachmentFormat, VkFormat depthAttachmentFormat, b32 blendingEnabled);

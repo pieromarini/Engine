@@ -39,8 +39,10 @@ struct MaterialData {
 	uint normalTexture;
 	uint specularTexture;
 	uint emissiveTexture;
-	vec4 colorFactors;
-	vec4 metal_rough_factors;
+
+	vec4 diffuseFactor;
+	vec4 specularFactor;
+	vec4 emissiveFactor;
 };
 
 struct MeshDraw {
@@ -66,21 +68,15 @@ layout(push_constant, std430) uniform pc {
 	VertexBuffer vertexBuffer;
 } PushConstants;
 
-/*
-layout (set = 1, binding = 0) uniform sampler2D textures[];
-*/
-
 layout (set = 0, binding = 0) readonly buffer GLTFMaterialData {
 	MaterialData materialData[];
-};
-
-layout (set = 0, binding = 1) readonly buffer DrawCommands {
-	IndirectCommandData drawCommands[];
 };
 
 layout (std430, set = 0, binding = 2) readonly buffer Draws {
 	MeshDraw draws[];
 };
+
+layout (set = 1, binding = 0) uniform sampler2D textures[];
 
 void main() {
 	MeshDraw meshDraw = draws[drawId];
@@ -89,14 +85,17 @@ void main() {
 	vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
 	vec3 N = normalize(inNormal);
 
+	vec3 color = vec3(1.0f);
+	if (material.albedoTexture >= 0) {
+		color *= texture(textures[nonuniformEXT(material.albedoTexture)], inUV).xyz;
+	}
+
 	float diff = max(dot(N, lightDir), 0.0);
 
-	vec3 baseColor = vec3(0.5, 0.5, 0.5);
+	vec3 ambient = color * 0.2;
+	vec3 diffuse = diff * color;
 
-	vec3 ambient = baseColor * 0.2;
-	vec3 lighting = ambient + baseColor * diff;
-
-	outFragColor = vec4(lighting, 1.0);
+	outFragColor = vec4(ambient + diffuse, 1.0);
 
 #if DEBUG
 	uint mhash = hash(drawId);

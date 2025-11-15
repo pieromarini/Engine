@@ -840,6 +840,59 @@ VkDescriptorSet buildDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout 
 	return result;
 }
 
+void buildBindlessTextureDescriptor(VkDescriptorSetLayout& descriptorSetLayout, VkDescriptorSet& descriptorSet) {
+	constexpr uint32_t maxBindlessTextureResources = 1000;
+
+	VkDescriptorPool pool{};
+
+	VkDescriptorPoolSize poolSizesBindless[] = {
+		{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = maxBindlessTextureResources }
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+	poolInfo.maxSets = 1;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = poolSizesBindless;
+
+	VK_CHECK(vkCreateDescriptorPool(renderVkState->device, &poolInfo, nullptr, &pool));
+
+	VkDescriptorBindingFlags bindlessFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+
+	VkDescriptorSetLayoutBinding layoutBinding;
+	layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	layoutBinding.descriptorCount = maxBindlessTextureResources;
+	layoutBinding.binding = 0;
+	layoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	layoutBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBindingFlagsCreateInfo extendedInfo{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO };
+	extendedInfo.bindingCount = 1;
+	extendedInfo.pBindingFlags = &bindlessFlags;
+
+	VkDescriptorSetLayoutCreateInfo bindlessTextureLayoutInfo = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+	bindlessTextureLayoutInfo.bindingCount = 1;
+	bindlessTextureLayoutInfo.pBindings = &layoutBinding;
+	bindlessTextureLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+
+	bindlessTextureLayoutInfo.pNext = &extendedInfo;
+
+	vkCreateDescriptorSetLayout(renderVkState->device, &bindlessTextureLayoutInfo, nullptr, &descriptorSetLayout);
+
+	VkDescriptorSetVariableDescriptorCountAllocateInfo countInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO };
+	countInfo.descriptorSetCount = 1;
+	countInfo.pDescriptorCounts = &maxBindlessTextureResources;
+
+	VkDescriptorSetAllocateInfo setAllocateInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+	setAllocateInfo.descriptorPool = pool;
+	setAllocateInfo.descriptorSetCount = 1;
+	setAllocateInfo.pSetLayouts = &descriptorSetLayout;
+
+	setAllocateInfo.pNext = &countInfo;
+
+	VK_CHECK(vkAllocateDescriptorSets(renderVkState->device, &setAllocateInfo, &descriptorSet));
+}
+
 // Pipelines
 VkPipeline buildPipeline(VkDevice device, VkPipelineLayout pipelineLayout, VkPipelineShaderStageCreateInfo* shaderStages, u32 shaderStagesCount, VkPrimitiveTopology topology, VkPolygonMode mode, VkCullModeFlags cullMode, VkFrontFace frontFace, VkFormat colorAttachmentFormat, VkFormat depthAttachmentFormat, b32 blendingEnabled) {
 	VkPipeline result{};
@@ -985,9 +1038,33 @@ void Render_loadScene(String8 path) {
 		Material* material = &model->materials[i];
 	}
 
+	renderVkState->defaultSampler = createSampler(renderVkState->device, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+
 	for (u32 i = 0; i < model->textureCount; ++i) {
 		Texture* texture = &model->textures[i];
+
+		// Create image and write to bindless descriptor set
 		RenderVkImage* image = createImage(renderVkState->device, memoryProperties, texture->data, texture->width, texture->height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+
+		VkDescriptorImageInfo imageInfo{
+			.sampler = renderVkState->defaultSampler,
+			.imageView = image->imageView,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
+		VkWriteDescriptorSet write{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = renderVkState->bindlessSet,
+			.dstBinding = 0,
+			.dstArrayElement = renderVkState->bindlessTextureCount,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.pImageInfo = &imageInfo
+		};
+
+		vkUpdateDescriptorSets(renderVkState->device, 1, &write, 0, nullptr);
+
+		renderVkState->bindlessTextureCount++;
 	}
 
 	// 1 draw command per GLTF primitive
@@ -1239,12 +1316,14 @@ void initDescriptors() {
 	renderVkState->drawDataLayout = buildDescriptorLayout(bindings, bindingsCount, 0);
 	renderVkState->drawDataDescriptorSet = buildDescriptorSet(renderVkState->descriptorPool, renderVkState->drawDataLayout);
 
+	buildBindlessTextureDescriptor(renderVkState->bindlessSetLayout, renderVkState->bindlessSet);
+
 	ScratchEnd(scratch);
 }
 
 void initPipelines() {
 	PerfScope;
-	// mesh pipeline
+
 	VkShaderModule meshVertexShader = nullptr;
 	if (!loadShaderModule("../res/shaders/triangle.vert.spv", renderVkState->device, &meshVertexShader)) {
 		printf("Error when building the mesh vertex shader");
@@ -1260,11 +1339,16 @@ void initPipelines() {
 		.size = sizeof(MeshPushConstants)
 	};
 
+	VkDescriptorSetLayout layouts[] = {
+		renderVkState->drawDataLayout,
+		renderVkState->bindlessSetLayout
+	};
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.flags = 0,
-		.setLayoutCount = 1,
-		.pSetLayouts = &renderVkState->drawDataLayout,
+		.setLayoutCount = ArrayCount(layouts),
+		.pSetLayouts = layouts,
 		.pushConstantRangeCount = 1,
 		.pPushConstantRanges = &range
 	};
@@ -1359,22 +1443,6 @@ void Render_update() {
 	// Record commands
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-	VkClearColorValue clearColor { 0.2f, 0.2, 0.2f, 1.0f };
-	VkImageSubresourceRange ranges {
-		.aspectMask  = VK_IMAGE_ASPECT_COLOR_BIT,
-		.baseMipLevel = 0,
-		.levelCount = 1,
-		.baseArrayLayer = 0,
-		.layerCount = 1
-	};
-
-	VkImageMemoryBarrier2 clearImageBarrier = imageBarrier(renderVkState->drawImage->image,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	pipelineBarrier(cmd, 0, 0, nullptr, 1, &clearImageBarrier);
-
-	vkCmdClearColorImage(cmd, renderVkState->drawImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &ranges);
-
 	VkImageMemoryBarrier2 drawImageBarrier = imageBarrier(renderVkState->drawImage->image,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1389,7 +1457,8 @@ void Render_update() {
 	};
 	pipelineBarrier(cmd, 0, 0, nullptr, 2, renderBarriers);
 
-	VkRenderingAttachmentInfo colorAttachment = attachmentInfo(renderVkState->drawImage->imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	VkClearValue clearValue{ .color = { 0.2f, 0.2f, 0.2f, 1.0f } };
+	VkRenderingAttachmentInfo colorAttachment = attachmentInfo(renderVkState->drawImage->imageView, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	VkRenderingAttachmentInfo depthAttachment = depthAttachmentInfo(renderVkState->depthImage->imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
 	VkRenderingInfo renderInfo = renderingInfo(renderVkState->drawExtent, &colorAttachment, &depthAttachment);
@@ -1421,6 +1490,7 @@ void Render_update() {
 		renderVkState->meshPushConstants->viewProj = projection * view;
 
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipelineLayout, 0, 1, &renderVkState->drawDataDescriptorSet, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipelineLayout, 1, 1, &renderVkState->bindlessSet, 0, nullptr);
 
 		vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
