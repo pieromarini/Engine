@@ -45,12 +45,10 @@ void update() {
 		if (event->kind == OS_EventKind_WindowClose) {
 			OSWindowHandle window = event->window;
 	
-			// TODO(piero): Cleanup shouldn't be done here.
 			OS_destroyWindow(window);
 
 			OS_consumeEvent(&events, event);
 
-			// TODO(piero): We should only quit the application if we close the main window.
 			state->quit = true;
 		}
 	}
@@ -63,7 +61,7 @@ void entryPoint() {
 	state = PushStruct(arena, State);
 	state->arena = arena;
 
-	OSWindowHandle osWindow = OS_createWindow(0, vec2{ 800, 600 }, Str8L("Engine"));
+	OSWindowHandle osWindow = OS_createWindow(0, vec2{ 1920, 1080 }, Str8L("Engine"));
 
 	Render_equipWindow(osWindow);
 
@@ -75,7 +73,8 @@ void entryPoint() {
 
 	DLLPushBack(state->firstWindow, state->lastWindow, window);
 
-	Render_loadScene(Str8L("../res/models/Lantern.glb"));
+	// Render_loadScene(Str8L("../res/models/bistro/bistro.glb"));
+	Render_loadScene(Str8L("../res/models/sponza-optimized/Sponza.gltf"));
 
 	while(!state->quit) {
 		update();

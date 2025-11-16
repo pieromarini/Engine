@@ -130,11 +130,6 @@ struct RenderVkState {
 	GPUMesh* lastMesh;
 	u32 meshCount;
 
-	// Immediate Submit
-	VkFence immFence;
-	VkCommandPool immCommandPool;
-	VkCommandBuffer immCommandBuffer;
-
 	RenderVkBuffer scratchBuffer;
 
 	Arena* frameArena;

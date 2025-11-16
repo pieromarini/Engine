@@ -62,6 +62,7 @@ struct GeometryDrawData {
 
 struct Model {
 	Geometry* geometry;
+
 	GeometryPrimitive* primitives;
 	u32 primitivesCount;
 
@@ -138,8 +139,24 @@ inline Model* parseGLTF(Arena* arena, String8 path) {
 				.dataSize = size
 			};
 		} else if (image->uri) {
-			printf("Image URI loading not implemented.");
-			Assert(false);
+			u64 beforeFilenameIdx = FindSubstr8(path, Str8L("/"), 0, MatchFlag_FindLast);
+			String8 basePath = Substr8(path, { 0, beforeFilenameIdx });
+			String8 imagePath = PushStr8F(arena, "%S/%S", basePath, Str8C(image->uri));
+
+			i32 width = 0, height = 0, nChannels = 0;
+			u8* pixels = stbi_load((char*)imagePath.str, &width, &height, &nChannels, 4);
+
+			if (!pixels) {
+				printf("Failed to load image");
+				continue;
+			}
+
+			result->textures[textureIndex] = {
+				.data = pixels,
+				.width = width,
+				.height = height,
+				.dataSize = width * height * 4
+			};
 		}
 	}
 
@@ -204,7 +221,12 @@ inline Model* parseGLTF(Arena* arena, String8 path) {
 			prim->firstIndex = indexOffset;
 			prim->vertexOffset = (i32)vertexOffset;
 			prim->indexCount = indexCount;
-			result->drawData[primitiveIndex].materialIndex = cgltf_material_index(data, primitive.material);
+
+			if (primitive.material) {
+				result->drawData[primitiveIndex].materialIndex = cgltf_material_index(data, primitive.material);
+			} else {
+				result->drawData[primitiveIndex].materialIndex = 0; // default material
+			}
 
 			Temp scratch = ScratchBegin(&arena, 1);
 
@@ -250,6 +272,10 @@ inline Model* parseGLTF(Arena* arena, String8 path) {
 
 	Assert(vertexOffset == modelVertexCount);
 
+	// NOTE(piero): This assumes that each NODE only references a mesh ONCE.
+	//              Otherwise, we will exceed the calculated size of `drawData`.
+	// TODO(piero): Need to handle nodes that reference meshes more than once.
+	u32 primIndex = 0;
 	for (u32 i = 0; i < data->nodes_count; ++i) {
 		const cgltf_node* node = &data->nodes[i];
 
@@ -257,8 +283,11 @@ inline Model* parseGLTF(Arena* arena, String8 path) {
 			f32 matrix[16]{};
 			cgltf_node_transform_world(node, matrix);
 
-			u32 meshIndex = cgltf_mesh_index(data, node->mesh);
-			result->drawData[meshIndex].transform = matrixFromArray(matrix);
+			for (u32 j = 0; j < node->mesh->primitives_count; ++j) {
+				Assert(primIndex <= result->drawDataCount);
+				result->drawData[primIndex].transform = matrixFromArray(matrix);
+				primIndex++;
+			}
 		}
 	}
 
@@ -305,7 +334,7 @@ inline Model* parseGLTF(Arena* arena, String8 path) {
 		mat->emissiveFactor = vec3{ material->emissive_factor[0], material->emissive_factor[1], material->emissive_factor[2] };
 	}
 
-	printf("Loaded %zu meshes. Vertices: %u | Indices: %u", data->meshes_count, result->geometry->vertexCount, result->geometry->indexCount);
+	printf("Loaded %zu meshes. Vertices: %u | Indices: %u\n", data->meshes_count, result->geometry->vertexCount, result->geometry->indexCount);
 
 	cgltf_free(data);
 

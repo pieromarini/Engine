@@ -19,47 +19,6 @@ static FrameData& currentFrame() {
 	return renderVkState->frames[renderVkState->frameNumber % MAX_FRAMES];
 }
 
-void immediateSubmit(void (*fn)(VkCommandBuffer cmd)) {
-	VK_CHECK(vkResetFences(renderVkState->device, 1, &renderVkState->immFence));
-	VK_CHECK(vkResetCommandBuffer(renderVkState->immCommandBuffer, 0));
-
-	VkCommandBuffer cmd = renderVkState->immCommandBuffer;
-
-	VkCommandBufferBeginInfo cmdBeginInfo{};
-	cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmdBeginInfo.pNext = nullptr;
-
-	cmdBeginInfo.pInheritanceInfo = nullptr;
-	cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
-	fn(cmd);
-
-	VK_CHECK(vkEndCommandBuffer(cmd));
-
-	VkCommandBufferSubmitInfo cmdInfo{};
-	cmdInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-	cmdInfo.commandBuffer = cmd;
-	cmdInfo.deviceMask = 0;
-
-	VkSubmitInfo2 submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-
-	submitInfo.waitSemaphoreInfoCount = 0;
-	submitInfo.pWaitSemaphoreInfos = nullptr;
-
-	submitInfo.signalSemaphoreInfoCount = 0;
-	submitInfo.pSignalSemaphoreInfos = nullptr;
-
-	submitInfo.commandBufferInfoCount = 1;
-	submitInfo.pCommandBufferInfos = &cmdInfo;
-
-	VK_CHECK(vkQueueSubmit2(renderVkState->graphicsQueue, 1, &submitInfo, renderVkState->immFence));
-
-	VK_CHECK(vkWaitForFences(renderVkState->device, 1, &renderVkState->immFence, true, 9999999999));
-}
-
 VkSemaphore createSemaphore(VkDevice device, VkSemaphoreCreateFlags flags) {
 	VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	createInfo.flags = flags;
@@ -1068,11 +1027,11 @@ void Render_loadScene(String8 path) {
 	}
 
 	// 1 draw command per GLTF primitive
-	u32 numDrawCalls = model->primitivesCount;
+	u32 drawCallCount = model->primitivesCount;
 
-	MeshDrawCommand* drawCommands = PushArray(scratch.arena, MeshDrawCommand, numDrawCalls);
+	MeshDrawCommand* drawCommands = PushArray(scratch.arena, MeshDrawCommand, drawCallCount);
 
-	for (u32 i = 0; i < numDrawCalls; ++i) {
+	for (u32 i = 0; i < drawCallCount; ++i) {
 		drawCommands[i] = {
 			.drawId = i,
 			.indirect = {
@@ -1085,9 +1044,9 @@ void Render_loadScene(String8 path) {
 		};
 	}
 
-	gpuMesh->drawCommandBuffer = createBuffer(renderVkState->device, memoryProperties, numDrawCalls * sizeof(MeshDrawCommand), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	gpuMesh->drawCommandCount = numDrawCalls;
-	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->drawCommandBuffer, renderVkState->scratchBuffer, drawCommands, numDrawCalls * sizeof(MeshDrawCommand));
+	gpuMesh->drawCommandBuffer = createBuffer(renderVkState->device, memoryProperties, drawCallCount * sizeof(MeshDrawCommand), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->drawCommandCount = drawCallCount;
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->drawCommandBuffer, renderVkState->scratchBuffer, drawCommands, drawCallCount * sizeof(MeshDrawCommand));
 
 	gpuMesh->drawDataBuffer = createBuffer(renderVkState->device, memoryProperties, model->drawDataCount * sizeof(MeshDrawData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->drawDataBuffer, renderVkState->scratchBuffer, model->drawData, model->drawDataCount * sizeof(MeshDrawData));
@@ -1223,7 +1182,7 @@ void Render_init() {
 	VkPhysicalDeviceMemoryProperties memoryProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
 
-	renderVkState->scratchBuffer = createBuffer(renderVkState->device, memoryProperties, Megabytes(128), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	renderVkState->scratchBuffer = createBuffer(renderVkState->device, memoryProperties, Megabytes(256), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 }
 
 void initCommands() {
@@ -1246,16 +1205,6 @@ void initCommands() {
 
 		VK_CHECK(vkAllocateCommandBuffers(renderVkState->device, &cmdAllocInfo, &renderVkState->frames[i].commandBuffer));
 	}
-
-	// TEMP: Init immediate submit stuff
-	VK_CHECK(vkCreateCommandPool(renderVkState->device, &commandPoolInfo, nullptr, &renderVkState->immCommandPool));
-	VkCommandBufferAllocateInfo cmdAllocInfo = {};
-	cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmdAllocInfo.pNext = nullptr;
-	cmdAllocInfo.commandPool = renderVkState->immCommandPool;
-	cmdAllocInfo.commandBufferCount = 1;
-	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	VK_CHECK(vkAllocateCommandBuffers(renderVkState->device, &cmdAllocInfo, &renderVkState->immCommandBuffer));
 }
 
 void initSync() {
@@ -1264,9 +1213,6 @@ void initSync() {
 		renderVkState->frames[i].renderSemaphore = createSemaphore(renderVkState->device);
 		renderVkState->frames[i].swapchainSemaphore = createSemaphore(renderVkState->device);
 	}
-
-	// TEMP: Init immediate submit stuff
-	renderVkState->immFence = createFence(renderVkState->device, VK_FENCE_CREATE_SIGNALED_BIT);
 }
 
 void initDescriptors() {
@@ -1322,8 +1268,6 @@ void initDescriptors() {
 }
 
 void initPipelines() {
-	PerfScope;
-
 	VkShaderModule meshVertexShader = nullptr;
 	if (!loadShaderModule("../res/shaders/triangle.vert.spv", renderVkState->device, &meshVertexShader)) {
 		printf("Error when building the mesh vertex shader");
@@ -1485,9 +1429,10 @@ void Render_update() {
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
 	// Render meshes
+	f32 scale = 1.0f;
 	for (GPUMesh* mesh = renderVkState->firstMesh; mesh != nullptr; mesh = mesh->next) {
 		renderVkState->meshPushConstants->vertexAddress = mesh->vertexAddress;
-		renderVkState->meshPushConstants->viewProj = projection * view;
+		renderVkState->meshPushConstants->viewProj = projection * view * matrixMakeScale({ scale, scale, scale });
 
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipelineLayout, 0, 1, &renderVkState->drawDataDescriptorSet, 0, nullptr);
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipelineLayout, 1, 1, &renderVkState->bindlessSet, 0, nullptr);

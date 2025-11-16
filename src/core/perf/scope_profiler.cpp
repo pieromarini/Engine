@@ -36,7 +36,7 @@ ProfileBlock::~ProfileBlock() {
 
 static void PrintTimeElapsed(u64 TotalTSCElapsed, ProfileAnchor* Anchor, u64 cpuFreq) {
 	f64 Percent = 100.0 * ((f64)Anchor->tscElapsedExclusive / (f64)TotalTSCElapsed);
-	printf("  %s[%llu]: %.4fms (%.2f%%", Anchor->label, Anchor->hitCount, (f64)Anchor->tscElapsedExclusive / (f64)cpuFreq, Percent);
+	printf("  %s[%llu]: %.4fms (%.2f%%", Anchor->label, Anchor->hitCount, 1000.0f * (f64)Anchor->tscElapsedExclusive / (f64)cpuFreq, Percent);
 	if (Anchor->tscElapsedInclusive != Anchor->tscElapsedExclusive) {
 		f64 PercentWithChildren = 100.0 * ((f64)Anchor->tscElapsedInclusive / (f64)TotalTSCElapsed);
 		printf(", %.2f%% w/children", PercentWithChildren);

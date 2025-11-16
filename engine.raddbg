@@ -1,7 +1,9 @@
 // raddbg 0.9.23 project file
 
-recent_file: path: "src/platform/render/vulkan/render_vulkan.cpp"
 recent_file: path: "src/parsers/gltf/parser_gltf_inc.h"
+recent_file: path: "d:/os/obj/amd64fre/minkernel/crts/ucrt/src/appcrt/startup/mt/objfre/amd64/minkernel/crts/ucrt/src/appcrt/startup/assert.cpp"
+recent_file: path: "third_party/cgltf.h"
+recent_file: path: "src/platform/render/vulkan/render_vulkan.cpp"
 recent_file: path: "src/main.cpp"
 recent_file: path: "../../../../j/msdk/build/Vulkan-ValidationLayers/repo/layers/vulkan/generated/chassis.cpp"
 recent_file: path: "../../../../j/msdk/build/Vulkan-ValidationLayers/repo/layers/vulkan/generated/parameter_validation.cpp"
