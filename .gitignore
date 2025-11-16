@@ -44,3 +44,5 @@ extern/sdl*
 res/shaders/*.spv
 res/models/bistro
 res/fonts/msdf-atlas-gen.exe
+res/models/sponza-full
+res/models/sponza-optimized

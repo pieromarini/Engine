@@ -84,6 +84,11 @@ struct GPUMesh {
 	u32 drawCommandCount;
 
 	RenderVkBuffer drawDataBuffer;
+	u32 drawDataCount;
+
+	RenderVkBuffer instanceDataBuffer;
+	u32 instanceCount;
+
 	RenderVkBuffer materialDataBuffer;
 	u32 materialCount;
 };

@@ -1036,24 +1036,29 @@ void Render_loadScene(String8 path) {
 			.drawId = i,
 			.indirect = {
 				.indexCount = model->primitives[i].indexCount,
-				.instanceCount = 1,
+				.instanceCount = model->primitives[i].instanceCount,
 				.firstIndex = model->primitives[i].firstIndex,
 				.vertexOffset = model->primitives[i].vertexOffset,
-				.firstInstance = i
+				.firstInstance = model->primitives[i].firstInstance
 			}
 		};
 	}
+
+	gpuMesh->materialDataBuffer = createBuffer(renderVkState->device, memoryProperties, model->materialCount * sizeof(Material), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->materialCount = model->materialCount;
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->materialDataBuffer, renderVkState->scratchBuffer, model->materials, model->materialCount * sizeof(Material));
 
 	gpuMesh->drawCommandBuffer = createBuffer(renderVkState->device, memoryProperties, drawCallCount * sizeof(MeshDrawCommand), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	gpuMesh->drawCommandCount = drawCallCount;
 	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->drawCommandBuffer, renderVkState->scratchBuffer, drawCommands, drawCallCount * sizeof(MeshDrawCommand));
 
 	gpuMesh->drawDataBuffer = createBuffer(renderVkState->device, memoryProperties, model->drawDataCount * sizeof(MeshDrawData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->drawDataCount = model->drawDataCount;
 	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->drawDataBuffer, renderVkState->scratchBuffer, model->drawData, model->drawDataCount * sizeof(MeshDrawData));
 
-	gpuMesh->materialDataBuffer = createBuffer(renderVkState->device, memoryProperties, model->materialCount * sizeof(Material), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	gpuMesh->materialCount = model->materialCount;
-	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->materialDataBuffer, renderVkState->scratchBuffer, model->materials, model->materialCount * sizeof(Material));
+	gpuMesh->instanceDataBuffer = createBuffer(renderVkState->device, memoryProperties, model->instanceCount * sizeof(GeometryInstanceData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	gpuMesh->instanceCount = model->instanceCount;
+	uploadBuffer(renderVkState->device, commandPool, commandBuffer, renderVkState->graphicsQueue, gpuMesh->instanceDataBuffer, renderVkState->scratchBuffer, model->instanceData, model->instanceCount * sizeof(GeometryInstanceData));
 
 	// Write descriptor set
 	VkDescriptorBufferInfo materialDataInfo{
@@ -1070,6 +1075,11 @@ void Render_loadScene(String8 path) {
 		.buffer = gpuMesh->drawDataBuffer.buffer,
 		.offset = 0,
 		.range = gpuMesh->drawCommandCount * sizeof(MeshDrawData)
+	};
+	VkDescriptorBufferInfo instanceDataInfo{
+		.buffer = gpuMesh->instanceDataBuffer.buffer,
+		.offset = 0,
+		.range = gpuMesh->instanceCount * sizeof(GeometryInstanceData)
 	};
 
 	VkWriteDescriptorSet writes[] = {
@@ -1099,6 +1109,15 @@ void Render_loadScene(String8 path) {
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.pBufferInfo = &drawDataInfo
+		},
+		{
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.pNext = nullptr,
+			.dstSet = renderVkState->drawDataDescriptorSet,
+			.dstBinding = 3,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.pBufferInfo = &instanceDataInfo
 		}
 	};
 	vkUpdateDescriptorSets(renderVkState->device, ArrayCount(writes), writes, 0, nullptr);
@@ -1235,7 +1254,7 @@ void initDescriptors() {
 	};
 	renderVkState->descriptorPool = buildDescriptorPool(maxSets, poolSizes, poolSizesCount);
 
-	u32 bindingsCount = 3;
+	u32 bindingsCount = 4;
 	VkDescriptorSetLayoutBinding* bindings = PushArray(scratch.arena, VkDescriptorSetLayoutBinding, bindingsCount);
 	bindings[0] = {
 		.binding = 0,
@@ -1256,6 +1275,13 @@ void initDescriptors() {
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		.pImmutableSamplers = nullptr
+	};
+	bindings[3] = {
+		.binding = 3,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
 		.pImmutableSamplers = nullptr
 	};
 

@@ -46,7 +46,6 @@ struct MaterialData {
 };
 
 struct MeshDraw {
-	mat4 transform;
 	uint materialIndex;
 	float padding[3];
 };

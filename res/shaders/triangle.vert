@@ -34,9 +34,12 @@ struct MaterialData {
 };
 
 struct MeshDraw {
-	mat4 transform;
 	uint materialIndex;
 	float padding[3];
+};
+
+struct InstanceDraw {
+	mat4 transform;
 };
 
 layout (location = 0) out vec3 outNormal;
@@ -66,11 +69,16 @@ layout (std430, set = 0, binding = 2) readonly buffer Draws {
 	MeshDraw draws[];
 };
 
+layout (std430, set = 0, binding = 3) readonly buffer InstanceDraws {
+	InstanceDraw instanceDraws[];
+};
+
 void main() {
 	uint drawId = drawCommands[gl_DrawIDARB].drawId;
 	MeshDraw meshDraw = draws[drawId];
+	InstanceDraw instanceDraw = instanceDraws[gl_InstanceIndex];
 
-	mat4 transform = meshDraw.transform;
+	mat4 transform = instanceDraw.transform;
 	uint materialIndex = meshDraw.materialIndex;
 
 	Vertex v = PushConstants.vertexBuffer.vertices[gl_VertexIndex];
