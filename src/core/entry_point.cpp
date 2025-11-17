@@ -2,19 +2,19 @@
 
 void mainEntryPoint(int argc, char** argv) {
 #if ENABLE_PROFILING
-	BeginProfile();
+  BeginProfile();
 #endif
 
-	// Init all subsystems
-	OS_init();
+  // Init all subsystems
+  OS_init();
 
-	Render_init();
+  Render_init();
 
-	// Entry point is defined by the OS layer
-	entryPoint();
+  // Entry point is defined by the OS layer
+  entryPoint();
 
 #if ENABLE_PROFILING
-	EndProfile();
+  EndProfile();
 #endif
 }
 

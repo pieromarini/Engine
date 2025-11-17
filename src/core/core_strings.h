@@ -4,39 +4,39 @@
 #include "memory/arena.h"
 
 struct String8Node {
-	String8Node* next;
-	String8 string;
+  String8Node* next;
+  String8 string;
 };
 
 struct String8List {
-	String8Node* first;
-	String8Node* last;
-	u64 count;
-	u64 totalSize;
+  String8Node* first;
+  String8Node* last;
+  u64 count;
+  u64 totalSize;
 };
 
 struct String8Array {
-	u32 count;
-	String8* strings;
+  u32 count;
+  String8* strings;
 };
 
 struct CStringArray {
-	u32 count;
-	char** strings;
+  u32 count;
+  char** strings;
 };
 
 using MatchFlags = u32;
 enum {
-	MatchFlag_CaseInsensitive = (1 << 0),
-	MatchFlag_RightSideSloppy = (1 << 1),
-	MatchFlag_SlashInsensitive = (1 << 2),
-	MatchFlag_FindLast = (1 << 3),
-	MatchFlag_KeepEmpties = (1 << 4),
+  MatchFlag_CaseInsensitive = (1 << 0),
+  MatchFlag_RightSideSloppy = (1 << 1),
+  MatchFlag_SlashInsensitive = (1 << 2),
+  MatchFlag_FindLast = (1 << 3),
+  MatchFlag_KeepEmpties = (1 << 4),
 };
 
 struct DecodedCodepoint {
-	u32 codepoint;
-	u32 advance;
+  u32 codepoint;
+  u32 advance;
 };
 
 b32 charIsAlpha(u8 c);

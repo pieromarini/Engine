@@ -3,24 +3,24 @@
 #include "core/core.h"
 
 struct OSWindowHandle {
-	u64 u64[1];
+  u64 u64[1];
 };
 
 enum OS_CursorType {
-	OS_CursorType_Null,
-	OS_CursorType_Hidden,
-	OS_CursorType_Pointer,
-	OS_CursorType_Hand,
-	OS_CursorType_WestEast,
-	OS_CursorType_NorthSouth,
-	OS_CursorType_NorthEastSouthWest,
-	OS_CursorType_NorthWestSouthEast,
-	OS_CursorType_AllCardinalDirections,
-	OS_CursorType_IBar,
-	OS_CursorType_Blocked,
-	OS_CursorType_Loading,
-	OS_CursorType_Pan,
-	OS_CursorType_COUNT
+  OS_CursorType_Null,
+  OS_CursorType_Hidden,
+  OS_CursorType_Pointer,
+  OS_CursorType_Hand,
+  OS_CursorType_WestEast,
+  OS_CursorType_NorthSouth,
+  OS_CursorType_NorthEastSouthWest,
+  OS_CursorType_NorthWestSouthEast,
+  OS_CursorType_AllCardinalDirections,
+  OS_CursorType_IBar,
+  OS_CursorType_Blocked,
+  OS_CursorType_Loading,
+  OS_CursorType_Pan,
+  OS_CursorType_COUNT
 };
 
 u64 OS_pageSize();

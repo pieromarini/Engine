@@ -3,27 +3,27 @@
 #include "core/core.h"
 
 struct ProfileAnchor {
-	u64 tscElapsedExclusive;
-	u64 tscElapsedInclusive;
-	u64 hitCount;
-	const char* label;
+  u64 tscElapsedExclusive;
+  u64 tscElapsedInclusive;
+  u64 hitCount;
+  const char* label;
 };
 
 struct Profiler {
-	ProfileAnchor anchors[4096];
-	u64 startTSC;
-	u64 endTSC;
+  ProfileAnchor anchors[4096];
+  u64 startTSC;
+  u64 endTSC;
 };
 
 struct ProfileBlock {
-	ProfileBlock(const char* _label, u32 _index);
-	~ProfileBlock();
+  ProfileBlock(const char* _label, u32 _index);
+  ~ProfileBlock();
 
-	const char* label;
-	u64 oldTSCElapsedInclusive;
-	u64 startTSC;
-	u32 parentIndex;
-	u32 anchorIndex;
+  const char* label;
+  u64 oldTSCElapsedInclusive;
+  u64 startTSC;
+  u32 parentIndex;
+  u32 anchorIndex;
 };
 
 #if ENABLE_PROFILING

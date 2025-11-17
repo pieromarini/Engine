@@ -10,83 +10,83 @@
 #include <windows.h>
 
 u64 OS_pageSize() {
-	SYSTEM_INFO info;
-	GetSystemInfo(&info);
-	return info.dwPageSize;
+  SYSTEM_INFO info;
+  GetSystemInfo(&info);
+  return info.dwPageSize;
 }
 
 void* OS_reserve(u64 size) {
-	u64 gbSize = size;
-	gbSize += Gigabytes(1) - 1;
-	gbSize -= gbSize % Gigabytes(1);
-	void* ptr = VirtualAlloc(nullptr, gbSize, MEM_RESERVE, PAGE_NOACCESS);
-	return ptr;
+  u64 gbSize = size;
+  gbSize += Gigabytes(1) - 1;
+  gbSize -= gbSize % Gigabytes(1);
+  void* ptr = VirtualAlloc(nullptr, gbSize, MEM_RESERVE, PAGE_NOACCESS);
+  return ptr;
 }
 
 void OS_release(void* ptr, u64 size) {
-	VirtualFree(ptr, size, MEM_RELEASE);
+  VirtualFree(ptr, size, MEM_RELEASE);
 }
 
 void OS_commit(void* ptr, u64 size) {
-	u64 pageAlignedSize = size;
-	pageAlignedSize += OS_pageSize() - 1;
-	pageAlignedSize -= pageAlignedSize % OS_pageSize();
-	VirtualAlloc(ptr, pageAlignedSize, MEM_COMMIT, PAGE_READWRITE);
+  u64 pageAlignedSize = size;
+  pageAlignedSize += OS_pageSize() - 1;
+  pageAlignedSize -= pageAlignedSize % OS_pageSize();
+  VirtualAlloc(ptr, pageAlignedSize, MEM_COMMIT, PAGE_READWRITE);
 }
 
 void OS_decommit(void* ptr, u64 size) {
-	VirtualFree(ptr, size, MEM_DECOMMIT);
+  VirtualFree(ptr, size, MEM_DECOMMIT);
 }
 
 void OS_abort() {
-	ExitProcess(1);
+  ExitProcess(1);
 }
 
 static u64 OS_getOSTimerFreq() {
-	LARGE_INTEGER freq;
-	QueryPerformanceFrequency(&freq);
-	return freq.QuadPart;
+  LARGE_INTEGER freq;
+  QueryPerformanceFrequency(&freq);
+  return freq.QuadPart;
 }
 
 static u64 OS_readOSTimer() {
-	LARGE_INTEGER value;
-	QueryPerformanceCounter(&value);
-	return value.QuadPart;
+  LARGE_INTEGER value;
+  QueryPerformanceCounter(&value);
+  return value.QuadPart;
 }
 
 void OS_init() {
-	OS_gfxInit();
+  OS_gfxInit();
 }
 
 int wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nShowCmd) {
-	ThreadCtx tCtx = ThreadCtx_alloc();
-	ThreadCtx_set(&tCtx);
+  ThreadCtx tCtx = ThreadCtx_alloc();
+  ThreadCtx_set(&tCtx);
 
 #if DEBUG
-	FILE* fp = nullptr;
-	b32 createdConsole = false;
+  FILE* fp = nullptr;
+  b32 createdConsole = false;
 
-	if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
-		if (AllocConsole()) {
-			createdConsole = true;
-		}
-	}
+  if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+    if (AllocConsole()) {
+      createdConsole = true;
+    }
+  }
 
-	freopen_s(&fp, "CONOUT$", "w", stdout);
-	freopen_s(&fp, "CONOUT$", "w", stderr);
-	freopen_s(&fp, "CONIN$", "r", stdin);
+  freopen_s(&fp, "CONOUT$", "w", stdout);
+  freopen_s(&fp, "CONOUT$", "w", stderr);
+  freopen_s(&fp, "CONIN$", "r", stdin);
 #endif
 
-	mainEntryPoint(__argc, __argv);
+  mainEntryPoint(__argc, __argv);
 
 #if DEBUG
-	if (createdConsole) {
-		FreeConsole();
-	}
+  if (createdConsole) {
+    FreeConsole();
+  }
 #endif
 
-	ThreadCtx_set(&tCtx);
-	ThreadCtx_release();
+  ThreadCtx_set(&tCtx);
+  ThreadCtx_release();
 
-	return 0;
+  return 0;
 }

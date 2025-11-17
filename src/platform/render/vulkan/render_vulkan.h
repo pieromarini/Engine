@@ -15,167 +15,167 @@
 #define MAX_FRAMES 2
 
 enum SwapchainStatus {
-	Swapchain_Ready,
-	Swapchain_Resized,
-	Swapchain_NotReady,
+  Swapchain_Ready,
+  Swapchain_Resized,
+  Swapchain_NotReady,
 };
 
 struct RenderVkSwapchain {
-	VkSwapchainKHR swapchain;
-	u32 width;
-	u32 height;
-	VkImage* images;
-	u32 imageCount;
-	b32 needsResize;
+  VkSwapchainKHR swapchain;
+  u32 width;
+  u32 height;
+  VkImage* images;
+  u32 imageCount;
+  b32 needsResize;
 };
 
 struct RenderVkImage {
-	VkImage image;
-	VkImageView imageView;
-	VkDeviceMemory memory;
-	VkFormat format;
+  VkImage image;
+  VkImageView imageView;
+  VkDeviceMemory memory;
+  VkFormat format;
 };
 
 struct RenderVkBuffer {
-	VkBuffer buffer;
-	VkDeviceMemory memory;
-	void* data;
-	u32 size;
+  VkBuffer buffer;
+  VkDeviceMemory memory;
+  void* data;
+  u32 size;
 };
 
 struct FrameData {
-	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
+  VkCommandPool commandPool;
+  VkCommandBuffer commandBuffer;
 
-	VkSemaphore swapchainSemaphore;
-	VkSemaphore renderSemaphore;
-	VkFence renderFence;
+  VkSemaphore swapchainSemaphore;
+  VkSemaphore renderSemaphore;
+  VkFence renderFence;
 };
 
 struct MeshPushConstants {
-	mat4 viewProj;
-	VkDeviceAddress vertexAddress;
+  mat4 viewProj;
+  VkDeviceAddress vertexAddress;
 };
 
 // Indirect command
 struct MeshDrawCommand {
-	uint32_t drawId;
-	VkDrawIndexedIndirectCommand indirect;
+  uint32_t drawId;
+  VkDrawIndexedIndirectCommand indirect;
 };
 
 struct alignas(16) MeshDrawData {
-	mat4 transform;
-	u32 materialIndex;
-	f32 padding[3];
+  mat4 transform;
+  u32 materialIndex;
+  f32 padding[3];
 };
 
 struct GPUMesh {
-	GPUMesh* next;
-	GPUMesh* prev;
+  GPUMesh* next;
+  GPUMesh* prev;
 
-	RenderVkBuffer vertexBuffer;
-	RenderVkBuffer indexBuffer;
-	VkDeviceAddress vertexAddress;
+  RenderVkBuffer vertexBuffer;
+  RenderVkBuffer indexBuffer;
+  VkDeviceAddress vertexAddress;
 
-	u32 vertexCount;
-	u32 indexCount;
+  u32 vertexCount;
+  u32 indexCount;
 
-	RenderVkBuffer drawCommandBuffer;
-	u32 drawCommandCount;
+  RenderVkBuffer drawCommandBuffer;
+  u32 drawCommandCount;
 
-	RenderVkBuffer drawDataBuffer;
-	u32 drawDataCount;
+  RenderVkBuffer drawDataBuffer;
+  u32 drawDataCount;
 
-	RenderVkBuffer instanceDataBuffer;
-	u32 instanceCount;
+  RenderVkBuffer instanceDataBuffer;
+  u32 instanceCount;
 
-	RenderVkBuffer materialDataBuffer;
-	u32 materialCount;
+  RenderVkBuffer materialDataBuffer;
+  u32 materialCount;
 };
 
 struct RenderVkState {
-	Arena* arena;
-	Arena* sceneArena;
-	VkInstance instance;
-	VkPhysicalDevice physicalDevice;
-	VkDevice device;
+  Arena* arena;
+  Arena* sceneArena;
+  VkInstance instance;
+  VkPhysicalDevice physicalDevice;
+  VkDevice device;
 
-	VkQueue graphicsQueue;
-	u32 graphicsQueueFamily;
+  VkQueue graphicsQueue;
+  u32 graphicsQueueFamily;
 
-	VkSurfaceKHR surface;
-	OSWindowHandle window;
-	RenderVkSwapchain* swapchain;
+  VkSurfaceKHR surface;
+  OSWindowHandle window;
+  RenderVkSwapchain* swapchain;
 
-	RenderVkImage* drawImage;
-	RenderVkImage* depthImage;
-	VkExtent2D drawExtent;
+  RenderVkImage* drawImage;
+  RenderVkImage* depthImage;
+  VkExtent2D drawExtent;
 
-	MeshPushConstants* meshPushConstants;
+  MeshPushConstants* meshPushConstants;
 
-	VkSampler defaultSampler;
+  VkSampler defaultSampler;
 
-	// Descriptors
-	VkDescriptorPool descriptorPool;
-	VkDescriptorSetLayout drawDataLayout;
-	VkDescriptorSet drawDataDescriptorSet;
+  // Descriptors
+  VkDescriptorPool descriptorPool;
+  VkDescriptorSetLayout drawDataLayout;
+  VkDescriptorSet drawDataDescriptorSet;
 
-	// Bindless Textures
-	VkDescriptorSetLayout bindlessSetLayout;
-	VkDescriptorSet bindlessSet;
+  // Bindless Textures
+  VkDescriptorSetLayout bindlessSetLayout;
+  VkDescriptorSet bindlessSet;
 
-	u32 bindlessTextureCount;
+  u32 bindlessTextureCount;
 
-	// Pipelines
-	VkPipeline meshPipeline;
-	VkPipelineLayout meshPipelineLayout;
+  // Pipelines
+  VkPipeline meshPipeline;
+  VkPipelineLayout meshPipelineLayout;
 
-	// Renderable meshes
-	GPUMesh* firstMesh;
-	GPUMesh* lastMesh;
-	u32 meshCount;
+  // Renderable meshes
+  GPUMesh* firstMesh;
+  GPUMesh* lastMesh;
+  u32 meshCount;
 
-	RenderVkBuffer scratchBuffer;
+  RenderVkBuffer scratchBuffer;
 
-	mat4 viewMatrix;
-	mat4 projectionMatrix;
+  mat4 viewMatrix;
+  mat4 projectionMatrix;
 
-	Arena* frameArena;
-	FrameData frames[MAX_FRAMES];
-	u32 frameNumber;
+  Arena* frameArena;
+  FrameData frames[MAX_FRAMES];
+  u32 frameNumber;
 };
 
 #define VK_CHECK(call) \
-	do \
-	{ \
-		VkResult result_ = call; \
-		Assert(result_ == VK_SUCCESS); \
-	} while (0)
+  do \
+  { \
+    VkResult result_ = call; \
+    Assert(result_ == VK_SUCCESS); \
+  } while (0)
 
 #define VK_CHECK_FORCE(call) \
-	do \
-	{ \
-		VkResult result_ = call; \
-		if (result_ != VK_SUCCESS) \
-		{ \
-			fprintf(stderr, "%s:%d: %s failed with error %d\n", __FILE__, __LINE__, #call, result_); \
-			abort(); \
-		} \
-	} while (0)
+  do \
+  { \
+    VkResult result_ = call; \
+    if (result_ != VK_SUCCESS) \
+    { \
+      fprintf(stderr, "%s:%d: %s failed with error %d\n", __FILE__, __LINE__, #call, result_); \
+      abort(); \
+    } \
+  } while (0)
 
 #define VK_CHECK_SWAPCHAIN(call) \
-	do \
-	{ \
-		VkResult result_ = call; \
-		Assert(result_ == VK_SUCCESS || result_ == VK_SUBOPTIMAL_KHR || result_ == VK_ERROR_OUT_OF_DATE_KHR); \
-	} while (0)
+  do \
+  { \
+    VkResult result_ = call; \
+    Assert(result_ == VK_SUCCESS || result_ == VK_SUBOPTIMAL_KHR || result_ == VK_ERROR_OUT_OF_DATE_KHR); \
+  } while (0)
 
 #define VK_CHECK_QUERY(call) \
-	do \
-	{ \
-		VkResult result_ = call; \
-		Assert(result_ == VK_SUCCESS || result_ == VK_NOT_READY); \
-	} while (0)
+  do \
+  { \
+    VkResult result_ = call; \
+    Assert(result_ == VK_SUCCESS || result_ == VK_NOT_READY); \
+  } while (0)
 
 #ifdef DEBUG
 #define KHR_VALIDATION 1

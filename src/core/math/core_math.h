@@ -70,74 +70,74 @@
 #define LogE(v)            LogEF32(v)
 
 union vec2 {
-	struct {
-		f32 x;
-		f32 y;
-	};
-	f32 elements[2];
+  struct {
+    f32 x;
+    f32 y;
+  };
+  f32 elements[2];
 };
 
 union vec2i32 {
-	struct {
-		i32 x;
-		i32 y;
-	};
-	i32 elements[2];
+  struct {
+    i32 x;
+    i32 y;
+  };
+  i32 elements[2];
 };
 
 union vec3 {
-	struct {
-		f32 x;
-		f32 y;
-		f32 z;
-	};
-	struct {
-		f32 r;
-		f32 g;
-		f32 b;
-	};
-	f32 elements[3];
+  struct {
+    f32 x;
+    f32 y;
+    f32 z;
+  };
+  struct {
+    f32 r;
+    f32 g;
+    f32 b;
+  };
+  f32 elements[3];
 };
 
 union vec4 {
-	struct {
-		f32 x;
-		f32 y;
-		f32 z;
-		f32 w;
-	};
+  struct {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+  };
 
-	struct {
-		vec2 xy;
-		vec2 zw;
-	};
+  struct {
+    vec2 xy;
+    vec2 zw;
+  };
 
-	struct {
-		vec3 xyz;
-		f32 _w1;
-	};
+  struct {
+    vec3 xyz;
+    f32 _w1;
+  };
 
-	struct {
-		f32 r;
-		f32 g;
-		f32 b;
-		f32 a;
-	};
+  struct {
+    f32 r;
+    f32 g;
+    f32 b;
+    f32 a;
+  };
 
-	struct {
-		vec3 rgb;
-		f32 _w2;
-	};
+  struct {
+    vec3 rgb;
+    f32 _w2;
+  };
 
-	f32 elements[4];
+  f32 elements[4];
 };
 
 // -- matrix
 struct mat3 {
-	f32 elements[3][3];
+  f32 elements[3][3];
 };
 struct mat4 {
-	f32 elements[4][4];
+  f32 elements[4][4];
 };
 
 // -- vec2 operators
@@ -188,35 +188,35 @@ vec4 mix(vec4 a, vec4 b, f32 t);
 
 // -- Region
 struct Region1DU64 {
-	Region1DU64(u64 _min, u64 _max) : min(_min), max(_max) {
-		if (max < min) {
-			Swap(min, max);
-		}
-	}
+  Region1DU64(u64 _min, u64 _max) : min(_min), max(_max) {
+    if (max < min) {
+      Swap(min, max);
+    }
+  }
 
-	u64 min;
-	u64 max;
+  u64 min;
+  u64 max;
 };
 
 struct Region1DF32 {
-	Region1DF32(f32 _min, f32 _max) : min(_min), max(_max) {
-		if (max < min) {
-			Swap(min, max);
-		}
-	}
+  Region1DF32(f32 _min, f32 _max) : min(_min), max(_max) {
+    if (max < min) {
+      Swap(min, max);
+    }
+  }
 
-	f32 min;
-	f32 max;
+  f32 min;
+  f32 max;
 };
 
 struct Region2D {
-	vec2 min;
-	vec2 max;
+  vec2 min;
+  vec2 max;
 };
 
 struct Region3D {
-	vec3 min;
-	vec3 max;
+  vec3 min;
+  vec3 max;
 };
 
 // -- Region1D
@@ -263,26 +263,26 @@ mat4 matrixMakeLookAt(vec3 eye, vec3 center, vec3 up);
 
 // -- quaternion
 union quat {
-	vec4 xyzw;
-	struct {
-		vec3 xyz;
-		f32 w;
-	};
-	struct {
-		vec2 xy;
-		vec2 zw;
-	};
-	struct {
-		f32 x;
-		vec3 yzw;
-	};
-	struct {
-		f32 _x;
-		f32 y;
-		f32 z;
-		f32 _w;
-	};
-	f32 elements[4];
+  vec4 xyzw;
+  struct {
+    vec3 xyz;
+    f32 w;
+  };
+  struct {
+    vec2 xy;
+    vec2 zw;
+  };
+  struct {
+    f32 x;
+    vec3 yzw;
+  };
+  struct {
+    f32 _x;
+    f32 y;
+    f32 z;
+    f32 _w;
+  };
+  f32 elements[4];
 };
 
 quat operator+(quat a, quat b);

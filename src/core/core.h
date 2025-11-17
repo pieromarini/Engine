@@ -154,25 +154,25 @@ read_only static u64 mantissaF64 = 0xFFFFFFFFFFFFFull;
 // #define InvalidPath AssertAlways(!"Invalid Path")
 
 static f32 AbsoluteValue(f32 f) {
-	union { u32 u; f32 f; } x{};
-	x.f = f;
-	x.u = x.u & ~signF32;
-	return x.f;
+  union { u32 u; f32 f; } x{};
+  x.f = f;
+  x.u = x.u & ~signF32;
+  return x.f;
 }
 
 static f64 AbsoluteValue(f64 f) {
-	union { u64 u; f64 f; } x{};
-	x.f = f;
-	x.u = x.u & ~signF64;
-	return x.f;
+  union { u64 u; f64 f; } x{};
+  x.f = f;
+  x.u = x.u & ~signF64;
+  return x.f;
 }
 
 static f32 SignFromF32(f32 f) {
-	return f < 0.f ? -1.f : +1.f;
+  return f < 0.f ? -1.f : +1.f;
 }
 
 static f64 SignFromF64(f64 f) {
-	return f < 0.0 ? -1.0 : +1.0;
+  return f < 0.0 ? -1.0 : +1.0;
 }
 
 // memory copy/move/set wrappers
@@ -181,15 +181,15 @@ static f64 SignFromF64(f64 f) {
 #define MemorySet(dst, byte, size) memset((dst), (byte), (size))
 
 #define MemoryCopyStruct(dst, src)            \
-	do {                                        \
-		Assert(sizeof(*(dst)) == sizeof(*(src))); \
-		MemoryCopy((dst), (src), sizeof(*(dst))); \
-	} while (0)
+  do {                                        \
+    Assert(sizeof(*(dst)) == sizeof(*(src))); \
+    MemoryCopy((dst), (src), sizeof(*(dst))); \
+  } while (0)
 #define MemoryCopyArray(dst, src)          \
-	do {                                     \
-		Assert(sizeof(dst) == sizeof(src));    \
-		MemoryCopy((dst), (src), sizeof(src)); \
-	} while (0)
+  do {                                     \
+    Assert(sizeof(dst) == sizeof(src));    \
+    MemoryCopy((dst), (src), sizeof(src)); \
+  } while (0)
 
 #define MemoryZero(ptr, size) MemorySet((ptr), 0, (size))
 #define MemoryZeroStruct(ptr) MemoryZero((ptr), sizeof(*(ptr)))
@@ -284,24 +284,24 @@ struct MemberOffset {
 // For now, we will mostly work with UTF-8 strings.
 
 struct String8 {
-	u8* str;
-	u64 size;
+  u8* str;
+  u64 size;
 };
 
 struct String16 {
-	u16* str;
-	u64 size;
+  u16* str;
+  u64 size;
 };
 
 struct String32 {
-	u32* str;
-	u64 size;
+  u32* str;
+  u64 size;
 };
 
 enum Axis2D {
-	Axis2D_X,
-	Axis2D_Y,
-	Axis2D_COUNT
+  Axis2D_X,
+  Axis2D_Y,
+  Axis2D_COUNT
 };
 
 #define Axis2D_Flip(a) ((Axis2D)(!(a)))

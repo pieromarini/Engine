@@ -6,7 +6,7 @@ constexpr u32 ARENA_HEADER_SIZE = 128;
 
 using ArenaFlags = u32;
 enum {
-	ArenaFlag_NoChain = (1 << 0),
+  ArenaFlag_NoChain = (1 << 0),
 };
 
 
@@ -15,29 +15,29 @@ static constexpr u64 arenaDefaultCommitSize = Kilobytes(64);
 static constexpr ArenaFlags arenaDefaultFlags = 0;
 
 struct ArenaParams {
-	ArenaFlags flags{ arenaDefaultFlags };
-	u64 reserveSize{ arenaDefaultReserveSize };
-	u64 commitSize{ arenaDefaultCommitSize };
-	void* optionalBackingBuffer{};
-	String8 name{};
+  ArenaFlags flags{ arenaDefaultFlags };
+  u64 reserveSize{ arenaDefaultReserveSize };
+  u64 commitSize{ arenaDefaultCommitSize };
+  void* optionalBackingBuffer{};
+  String8 name{};
 };
 
 struct Arena {
-	Arena* prev;
-	Arena* current;
-	ArenaFlags flags;
-	u32 nameSize;
-	u64 commitedSize;
-	u64 reservedSize;
-	u64 basePos;
-	u64 pos;
-	u64 commited;
-	u64 reserved;
+  Arena* prev;
+  Arena* current;
+  ArenaFlags flags;
+  u32 nameSize;
+  u64 commitedSize;
+  u64 reservedSize;
+  u64 basePos;
+  u64 pos;
+  u64 commited;
+  u64 reserved;
 };
 
 struct Temp {
-	Arena* arena;
-	u64 pos;
+  Arena* arena;
+  u64 pos;
 };
 
 Arena* arenaAlloc(u64 size);

@@ -6,10 +6,10 @@ struct Arena;
 struct Temp;
 
 struct ThreadCtx {
-	Arena* scratchArenas[2];
-	u8 threadName[64];
-	u64 threadNameSize;
-	bool isMainThread;
+  Arena* scratchArenas[2];
+  u8 threadName[64];
+  u64 threadNameSize;
+  bool isMainThread;
 };
 
 ThreadCtx ThreadCtx_alloc();
