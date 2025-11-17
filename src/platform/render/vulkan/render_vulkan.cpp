@@ -1402,13 +1402,6 @@ void Render_update() {
 
 	VK_CHECK(vkResetFences(renderVkState->device, 1, &currentFrame().renderFence));
 
-	// Update scene values
-	f32 aspectRatio = (f32)renderVkState->drawExtent.width / (f32)renderVkState->drawExtent.height;
-	mat4 view = matrixMakeLookAt({0.0f, 20.0f, 20.0f}, {0.0f, 14.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
-	mat4 projection = matrixMakePerspective(RadFromDeg(70.0f), aspectRatio, 10000.0f, 0.1f);
-	projection.elements[1][1] *= -1;
-
-
 	VkCommandBuffer cmd = currentFrame().commandBuffer;
 	VK_CHECK(vkResetCommandBuffer(cmd, 0));
 

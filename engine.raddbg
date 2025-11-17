@@ -28,9 +28,3 @@ target:
   enabled: 1
   entry_point: entryPoint
 }
-breakpoint:
-{
-  source_location: "src/platform/render/vulkan/render_vulkan.cpp:1468:1"
-  hit_count: 0
-  enabled: 0
-}
