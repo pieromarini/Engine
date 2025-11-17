@@ -339,10 +339,10 @@ mat4 matrixMakePerspective(f32 fov, f32 aspectRatio, f32 nearZ, f32 farZ) {
 
   f32 tanHalfTheta = tanf(fov / 2.0f);
   result.elements[0][0] = 1.0f / (aspectRatio * tanHalfTheta);
-  result.elements[1][1] = 1.0f / tanHalfTheta;
-  result.elements[2][2] = farZ / (farZ - nearZ);
-  result.elements[2][3] = 1.0f;
-  result.elements[3][2] = -(farZ * nearZ) / (farZ - nearZ);
+  result.elements[1][1] = -1.0f / tanHalfTheta;
+  result.elements[2][2] = farZ / (nearZ - farZ);
+  result.elements[2][3] = -1.0f;
+  result.elements[3][2] = (farZ * nearZ) / (nearZ - farZ);
   result.elements[3][3] = 0.0f;
 
   return result;
@@ -364,12 +364,11 @@ mat4 matrixMakeOrthographic(f32 left, f32 right, f32 bottom, f32 top, f32 zNear,
 }
 
 // -- Views
-
 mat4 matrixMakeRotation(f32 pitch, f32 yaw) {
-  // LEFT -> +X
-  // UP   -> +Y
+  // RIGHT -> +X
+  // UP    -> -Y
   quat pitchRotation = quatFromAngleAxis(pitch, vec3{ 1.0f, 0.0f, 0.0f });
-  quat yawRotation = quatFromAngleAxis(yaw, vec3{ 0.0f, 1.0f, 0.0f });
+  quat yawRotation = quatFromAngleAxis(yaw, vec3{ 0.0f, -1.0f, 0.0f });
 
   return mat4FromQuat(yawRotation) * mat4FromQuat(pitchRotation);
 }

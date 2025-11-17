@@ -44,10 +44,10 @@ void processEvents(Window* window, OS_EventList* events) {
 
     if (event->kind == OS_EventKind_Press) {
       if (event->key == OS_Key_W) {
-        camera->velocity.z = 1;
+        camera->velocity.z = -1;
       }
       if (event->key == OS_Key_S) {
-        camera->velocity.z = -1;
+        camera->velocity.z = 1;
       }
       if (event->key == OS_Key_A) {
         camera->velocity.x = -1;
@@ -79,7 +79,7 @@ void processEvents(Window* window, OS_EventList* events) {
 
     if (OS_getRelativeMouseMode(window->handle) && event->kind == OS_EventKind_MouseMove) {
       camera->yaw += event->relPosition.x / 200.0f;
-      camera->pitch += event->relPosition.y / 200.0f;
+      camera->pitch -= event->relPosition.y / 200.0f;
 
       OS_consumeEvent(events, event);
     }
@@ -156,8 +156,8 @@ void entryPoint() {
 
   DLLPushBack(state->firstWindow, state->lastWindow, window);
 
-  // Render_loadScene(Str8L("../res/models/bistro/bistro.glb"));
-  Render_loadScene(Str8L("../res/models/sponza-optimized/Sponza.gltf"));
+  Render_loadScene(Str8L("../res/models/bistro/bistro.glb"));
+  // Render_loadScene(Str8L("../res/models/sponza-optimized/Sponza.gltf"));
 
   while(!state->quit) {
     update();

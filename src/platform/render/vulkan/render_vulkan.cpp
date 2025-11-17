@@ -25,9 +25,6 @@ void Render_setViewMatrix(vec3 cameraPosition, f32 pitch, f32 yaw) {
 
 void Render_setProjectionMatrix(f32 fov, f32 aspectRatio, f32 nearZ, f32 farZ) {
   renderVkState->projectionMatrix = matrixMakePerspective(RadFromDeg(fov), aspectRatio, nearZ, farZ);
-
-  // Flip Y
-  renderVkState->projectionMatrix.elements[1][1] *= -1;
 }
 
 VkSemaphore createSemaphore(VkDevice device, VkSemaphoreCreateFlags flags) {
