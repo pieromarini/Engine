@@ -2,8 +2,7 @@
 
 #include "core/core.h"
 #include "core/core_strings.h"
-#include "core/math/matrix.h"
-#include "core/math/vector.h"
+#include "core/math/core_math.h"
 #include "core/memory/arena.h"
 #include "core/perf/scope_profiler.h"
 #include "core/thread_context.h"
@@ -151,7 +150,7 @@ inline Model* parseGLTF(Arena* arena, String8 path) {
 			};
 		} else if (image->uri) {
 			u64 beforeFilenameIdx = FindSubstr8(path, Str8L("/"), 0, MatchFlag_FindLast);
-			String8 basePath = Substr8(path, { 0, beforeFilenameIdx });
+			String8 basePath = Substr8(path, 0, beforeFilenameIdx);
 			String8 imagePath = PushStr8F(arena, "%S/%S", basePath, Str8C(image->uri));
 
 			i32 width = 0, height = 0, nChannels = 0;

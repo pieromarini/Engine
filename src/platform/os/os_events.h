@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/core.h"
-#include "core/math/math.h"
+#include "core/math/core_math.h"
 #include "core/core_strings.h"
 
 #include "os_keys.h"
@@ -12,6 +12,7 @@ enum OS_EventKind {
 	OS_EventKind_WindowClose,
 	OS_EventKind_WindowLoseFocus,
 	OS_EventKind_WindowResize,
+	OS_EventKind_MouseMove,
 	OS_EventKind_Press,
 	OS_EventKind_Release,
 	OS_EventKind_Text,
@@ -36,6 +37,8 @@ struct OS_Event {
 	OS_Key key;
 	u32 character;
 	vec2 position;
+	vec2 relPosition;
+	vec2i32 rawPosition;
 	vec2 scroll;
 	String8 path;
 };

@@ -2,7 +2,6 @@
 
 #include "core/core.h"
 #include "memory/arena.h"
-#include "core/math/math.h"
 
 struct String8Node {
 	String8Node* next;
@@ -71,10 +70,10 @@ String8 PushStr8FillByte(Arena* arena, u64 size, u8 byte);
 // matching
 b32 Str8Match(String8 a, String8 b, MatchFlags flags);
 
-String8 Str8Skip(String8 str, u64 min);
+String8 Str8Skip(String8 str, u64 start);
 
 // Substrings
-String8 Substr8(String8 str, Rect1D rect);
+String8 Substr8(String8 str, u64 start, u64 end);
 u64 FindSubstr8(String8 haystack, String8 needle, u64 startPos, MatchFlags flags);
 
 // UTF Decoding

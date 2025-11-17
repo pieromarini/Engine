@@ -14,7 +14,7 @@
 #include "data_structures/array.h"
 #include "data_structures/stack.h"
 
-#include "math/math.h"
+#include "math/core_math.h"
 
 
 #include "entry_point.h"

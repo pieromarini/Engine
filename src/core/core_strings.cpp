@@ -112,8 +112,8 @@ String8 PushStr8FillByte(Arena* arena, u64 size, u8 byte) {
 	return result;
 }
 
-String8 Str8Skip(String8 str, u64 min) {
-	return Substr8(str, Rect1D(min, str.size));
+String8 Str8Skip(String8 str, u64 start) {
+	return Substr8(str, start, str.size);
 }
 
 b32 Str8Match(String8 a, String8 b, MatchFlags flags) {
@@ -137,22 +137,20 @@ b32 Str8Match(String8 a, String8 b, MatchFlags flags) {
 	return result;
 }
 
-String8 Substr8(String8 str, Rect1D rect) {
-	auto min = rect.min;
-	auto max = rect.max;
-	if (max > str.size) {
-		max = str.size;
+String8 Substr8(String8 str, u64 start, u64 end) {
+	if (end > str.size) {
+		end = str.size;
 	}
-	if (min > str.size) {
-		min = str.size;
+	if (start > str.size) {
+		start = str.size;
 	}
-	if (min > max) {
-		u64 swap = min;
-		min = max;
-		max = swap;
+	if (start > end) {
+		u64 swap = start;
+		start = end;
+		end = swap;
 	}
-	str.size = max - min;
-	str.str += min;
+	str.size = end - start;
+	str.str += start;
 	return str;
 }
 
@@ -161,7 +159,7 @@ u64 FindSubstr8(String8 haystack, String8 needle, u64 startPos, MatchFlags flags
 	u64 found_idx = haystack.size;
 	for (u64 i = startPos; i < haystack.size; i += 1) {
 		if (i + needle.size <= haystack.size) {
-			String8 substr = Substr8(haystack, Rect1D(i, i + needle.size));
+			String8 substr = Substr8(haystack, i, i + needle.size);
 			if (Str8Match(substr, needle, flags)) {
 				found_idx = i;
 				found = 1;

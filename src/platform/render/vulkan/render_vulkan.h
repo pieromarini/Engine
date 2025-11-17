@@ -137,6 +137,9 @@ struct RenderVkState {
 
 	RenderVkBuffer scratchBuffer;
 
+	mat4 viewMatrix;
+	mat4 projectionMatrix;
+
 	Arena* frameArena;
 	FrameData frames[MAX_FRAMES];
 	u32 frameNumber;

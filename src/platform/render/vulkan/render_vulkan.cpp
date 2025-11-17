@@ -2,7 +2,7 @@
 
 #include "core/config.h"
 #include "core/core.h"
-#include "core/math/matrix.h"
+#include "core/math/core_math.h"
 #include "core/memory/arena.h"
 #include "core/thread_context.h"
 #include "platform/os/gfx/os_gfx_win32.h"
@@ -17,6 +17,17 @@ per_thread RenderVkState* renderVkState;
 
 static FrameData& currentFrame() {
 	return renderVkState->frames[renderVkState->frameNumber % MAX_FRAMES];
+}
+
+void Render_setViewMatrix(vec3 cameraPosition, f32 pitch, f32 yaw) {
+	renderVkState->viewMatrix = matrixMakeViewFromPitchYaw(cameraPosition, pitch, yaw);
+}
+
+void Render_setProjectionMatrix(f32 fov, f32 aspectRatio, f32 nearZ, f32 farZ) {
+	renderVkState->projectionMatrix = matrixMakePerspective(RadFromDeg(fov), aspectRatio, nearZ, farZ);
+
+	// Flip Y
+	renderVkState->projectionMatrix.elements[1][1] *= -1;
 }
 
 VkSemaphore createSemaphore(VkDevice device, VkSemaphoreCreateFlags flags) {
@@ -397,14 +408,13 @@ VkPresentModeKHR getPresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR su
 }
 
 RenderVkSwapchain* createSwapchain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format, VkSwapchainKHR oldSwapchain) {
-	// TODO(piero): Free list? Specific swapchain arena?
 	RenderVkSwapchain* result = PushStruct(renderVkState->arena, RenderVkSwapchain);
 
 	VkSurfaceCapabilitiesKHR surfaceCaps;
 	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps));
 
-	Rect2D rect = OS_clientRectFromWindow(windowHandle);
-	vec2 size = rect2DSize(rect);
+	Region2D rect = OS_clientRectFromWindow(windowHandle);
+	vec2 size = region2DSize(rect);
 	i32 width = (i32)size.x;
 	i32 height = (i32)size.y;
 
@@ -455,8 +465,8 @@ void destroySwapchain(VkDevice device, RenderVkSwapchain* swapchain) {
 }
 
 SwapchainStatus recreateSwapchain(RenderVkSwapchain* oldSwapchain, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, u32 familyIndex, OSWindowHandle windowHandle, VkFormat format) {
-	Rect2D rect = OS_clientRectFromWindow(windowHandle);
-	vec2 size = rect2DSize(rect);
+	Region2D rect = OS_clientRectFromWindow(windowHandle);
+	vec2 size = region2DSize(rect);
 	i32 width = (i32)size.x;
 	i32 height = (i32)size.y;
 
@@ -1355,8 +1365,8 @@ void Render_equipWindow(OSWindowHandle windowHandle) {
 	renderVkState->swapchain = swapchain;
 
 	// Create render target
-	Rect2D rect = OS_clientRectFromWindow(windowHandle);
-	vec2 size = rect2DSize(rect);
+	Region2D rect = OS_clientRectFromWindow(windowHandle);
+	vec2 size = region2DSize(rect);
 	u32 width = (u32)size.x;
 	u32 height = (u32)size.y;
 
@@ -1396,9 +1406,8 @@ void Render_update() {
 	f32 aspectRatio = (f32)renderVkState->drawExtent.width / (f32)renderVkState->drawExtent.height;
 	mat4 view = matrixMakeLookAt({0.0f, 20.0f, 20.0f}, {0.0f, 14.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
 	mat4 projection = matrixMakePerspective(RadFromDeg(70.0f), aspectRatio, 10000.0f, 0.1f);
-
-	// Invert Y-axis
 	projection.elements[1][1] *= -1;
+
 
 	VkCommandBuffer cmd = currentFrame().commandBuffer;
 	VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -1454,11 +1463,12 @@ void Render_update() {
 
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-	// Render meshes
 	f32 scale = 1.0f;
+	renderVkState->meshPushConstants->viewProj = renderVkState->projectionMatrix * renderVkState->viewMatrix * matrixMakeScale({ scale, scale, scale });
+
+	// Render meshes
 	for (GPUMesh* mesh = renderVkState->firstMesh; mesh != nullptr; mesh = mesh->next) {
 		renderVkState->meshPushConstants->vertexAddress = mesh->vertexAddress;
-		renderVkState->meshPushConstants->viewProj = projection * view * matrixMakeScale({ scale, scale, scale });
 
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipelineLayout, 0, 1, &renderVkState->drawDataDescriptorSet, 0, nullptr);
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderVkState->meshPipelineLayout, 1, 1, &renderVkState->bindlessSet, 0, nullptr);

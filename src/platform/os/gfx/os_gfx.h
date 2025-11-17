@@ -1,8 +1,7 @@
 #pragma once
 
 #include "core/core.h"
-#include "core/math/region.h"
-#include "core/math/vector.h"
+#include "core/math/core_math.h"
 #include "platform/os/core/os_core.h"
 #include "platform/os/os_events.h"
 
@@ -28,14 +27,18 @@ bool OS_windowIsFullscreen(OSWindowHandle handle);
 void OS_windowFirstPaint(OSWindowHandle handle);
 void OS_windowSetRepaint(OSWindowHandle handle, OS_RepaintFunction* repaint);
 
-Rect2D OS_rectFromWindow(OSWindowHandle handle);
-Rect2D OS_clientRectFromWindow(OSWindowHandle handle);
+Region2D OS_rectFromWindow(OSWindowHandle handle);
+Region2D OS_clientRectFromWindow(OSWindowHandle handle);
 vec2 OS_mouseFromWindow(OSWindowHandle handle);
+b32 OS_getRelativeMouseMode(OSWindowHandle handle);
+b32 OS_setRelativeMouseMode(OSWindowHandle handle, b32 enable);
+
+void OS_setCursor(OS_CursorType type);
 
 void OS_windowClearCustomBorderData(OSWindowHandle handle);
 void OS_windowPushCustomTitleBar(OSWindowHandle handle, f32 thickness);
 void OS_windowPushCustomEdges(OSWindowHandle handle, f32 thickness);
-void OS_windowPushCustomTitlebarClientArea(OSWindowHandle handle, Rect2D rect);
+void OS_windowPushCustomTitlebarClientArea(OSWindowHandle handle, Region2D rect);
 
 OS_Modifiers OS_getModifiers();
 OS_EventList OS_getEvents(Arena* arena);

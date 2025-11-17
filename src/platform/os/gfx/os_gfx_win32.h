@@ -7,7 +7,7 @@
 
 struct Win32TitleBarClientArea {
 	Win32TitleBarClientArea* next;
-	Rect2D rect;
+	Region2D rect;
 };
 
 struct Win32Window {
@@ -33,6 +33,11 @@ struct Win32GfxState {
 
 	OS_CursorType cursorType;
 
+	// mouse state
+	vec2 lastMousePosition;
+	b32 mouseInside;
+	b32 mouseRelativeMode;
+
 	Arena* windowArena;
 	Win32Window* firstWindow;
 	Win32Window* lastWindow;
@@ -41,3 +46,6 @@ struct Win32GfxState {
 
 OSWindowHandle OS_handleFromWindow(Win32Window* window);
 Win32Window* OS_windowFromHandle(OSWindowHandle handle);
+
+// Enables RAW Input from the Win32 API. Used for relative mouse movement
+void OS_setRawMouseInputEnabled(OSWindowHandle handle, b32 enable);

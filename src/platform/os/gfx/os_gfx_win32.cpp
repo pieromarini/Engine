@@ -1,11 +1,13 @@
+#include <cstdio>
 #include <dwmapi.h>
 #include <oleidl.h>
 #include <windows.h>
 #include <windowsx.h>
 #include <Uxtheme.h>
+#include <hidusage.h>
 
 #include "core/core.h"
-#include "core/math/region.h"
+#include "core/math/core_math.h"
 #include "core/memory/arena.h"
 #include "core/core_strings.h"
 #include "core/thread_context.h"
@@ -60,10 +62,17 @@ static LRESULT WINAPI OS_defaultWindowProc(HWND hwnd, UINT message, WPARAM wPara
 		event->window = windowHandle;
 	} break;
 
+	case WM_MOUSELEAVE: {
+		win32GfxState->mouseInside = false;
+		win32GfxState->lastMousePosition = { 0.0, 0.0 };
+	} break;
+
 	case WM_KILLFOCUS: {
 		event = PushStruct(win32EventsArena, OS_Event);
 		event->kind = OS_EventKind_WindowLoseFocus;
 		event->window = windowHandle;
+		win32GfxState->lastMousePosition = { 0.0, 0.0 };
+		event->relPosition = { 0.0, 0.0 };
 		ReleaseCapture();
 	} break;
 	// mouse buttons
@@ -101,10 +110,51 @@ static LRESULT WINAPI OS_defaultWindowProc(HWND hwnd, UINT message, WPARAM wPara
 			SetCapture(hwnd);
 		}
 	} break;
+	case WM_INPUT: {
+		if (win32GfxState->mouseRelativeMode) {
+			event = PushStruct(win32EventsArena, OS_Event);
+			event->kind = OS_EventKind_MouseMove;
+
+			UINT size = 0;
+			GetRawInputData((HRAWINPUT)lParam, RID_INPUT, nullptr, &size,
+					sizeof(RAWINPUTHEADER));
+
+			BYTE buffer[128];
+			if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT,
+						buffer, &size,
+						sizeof(RAWINPUTHEADER)) == size) {
+				RAWINPUT* raw = (RAWINPUT*)buffer;
+
+				if (raw->header.dwType == RIM_TYPEMOUSE) {
+					event->relPosition.x = (f32)raw->data.mouse.lLastX;
+					event->relPosition.y = (f32)raw->data.mouse.lLastY;
+				}
+			}
+		}
+	} break;
 	case WM_MOUSEMOVE: {
-		OS_Event* event = PushStruct(win32EventsArena, OS_Event);
-		event->position.x = (f32)(i16)LOWORD(lParam);
-		event->position.y = (f32)(i16)HIWORD(lParam);
+		event = PushStruct(win32EventsArena, OS_Event);
+		event->kind = OS_EventKind_MouseMove;
+
+		f32 x = (f32)GET_X_LPARAM(lParam);
+		f32 y = (f32)GET_Y_LPARAM(lParam);
+
+		event->position.x = x;
+		event->position.y = y;
+
+		if (!win32GfxState->mouseRelativeMode) {
+			if (win32GfxState->mouseInside) {
+				event->relPosition.x = event->position.x - win32GfxState->lastMousePosition.x;
+				event->relPosition.y = event->position.y - win32GfxState->lastMousePosition.y;
+			} else {
+				win32GfxState->mouseInside = true;
+				event->relPosition.x = 0;
+				event->relPosition.y = 0;
+			}
+
+			win32GfxState->lastMousePosition.x = x;
+			win32GfxState->lastMousePosition.y = y;
+		}
 	} break;
 
 	// mouse wheel
@@ -140,7 +190,7 @@ static LRESULT WINAPI OS_defaultWindowProc(HWND hwnd, UINT message, WPARAM wPara
 		}
 		break;
 	case WM_SETCURSOR: {
-		if (rect2DContains(OS_clientRectFromWindow(windowHandle), OS_mouseFromWindow(windowHandle)) && win32GfxState->cursorType != OS_CursorType_Null) {
+		if (region2DContains(OS_clientRectFromWindow(windowHandle), OS_mouseFromWindow(windowHandle)) && win32GfxState->cursorType != OS_CursorType_Null) {
 			static b32 tableInitialized = false;
 			static HCURSOR cursorTable[OS_CursorType_COUNT];
 			if (!tableInitialized) {
@@ -160,6 +210,7 @@ static LRESULT WINAPI OS_defaultWindowProc(HWND hwnd, UINT message, WPARAM wPara
 			if (win32GfxState->cursorType == OS_CursorType_Hidden) {
 				ShowCursor(0);
 			} else {
+				printf("Show Cursor\n");
 				ShowCursor(1);
 				SetCursor(cursorTable[win32GfxState->cursorType]);
 			}
@@ -177,6 +228,7 @@ static LRESULT WINAPI OS_defaultWindowProc(HWND hwnd, UINT message, WPARAM wPara
 		b32 isDown = !(lParam & (1 << 31));
 		OS_EventKind kind = isDown ? OS_EventKind_Press : OS_EventKind_Release;
 
+		// TODO(piero): move these out of here
 		static OS_Key keyTable[256] = {};
 		static b32 keyTableInitialized = false;
 
@@ -353,7 +405,7 @@ static LRESULT WINAPI OS_defaultWindowProc(HWND hwnd, UINT message, WPARAM wPara
 			// check against title bar client areas
 			b32 isOverTitleBarClientArea = 0;
 			for (Win32TitleBarClientArea* area = window->firstTitleBarClientArea; area != nullptr; area = area->next) {
-				Rect2D rect = area->rect;
+				Region2D rect = area->rect;
 				if (rect.min.x <= posClient.x && posClient.x < rect.max.x && rect.min.y <= posClient.y && posClient.y < rect.max.y) {
 					isOverTitleBarClientArea = 1;
 					break;
@@ -555,8 +607,8 @@ void OS_windowSetRepaint(OSWindowHandle handle, OS_RepaintFunction* repaint) {
 	window->repaint = repaint;
 }
 
-Rect2D OS_rectFromWindow(OSWindowHandle handle) {
-	Rect2D rect{};
+Region2D OS_rectFromWindow(OSWindowHandle handle) {
+	Region2D rect{};
 	Win32Window* window = OS_windowFromHandle(handle);
 	if (window) {
 		RECT w32Rect{};
@@ -568,8 +620,8 @@ Rect2D OS_rectFromWindow(OSWindowHandle handle) {
 	return rect;
 }
 
-Rect2D OS_clientRectFromWindow(OSWindowHandle handle) {
-	Rect2D rect{};
+Region2D OS_clientRectFromWindow(OSWindowHandle handle) {
+	Region2D rect{};
 	Win32Window* window = OS_windowFromHandle(handle);
 	if (window) {
 		RECT w32Rect{};
@@ -594,6 +646,53 @@ vec2 OS_mouseFromWindow(OSWindowHandle handle) {
 	return result;
 }
 
+void OS_setRawMouseInputEnabled(OSWindowHandle handle, b32 enable) {
+	Win32Window* window = OS_windowFromHandle(handle);
+
+	if (enable) {
+		RAWINPUTDEVICE rid{};
+		rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
+		rid.usUsage     = HID_USAGE_GENERIC_MOUSE;
+		rid.dwFlags     = RIDEV_INPUTSINK;
+		rid.hwndTarget  = window->hwnd;
+
+		RegisterRawInputDevices(&rid, 1, sizeof(rid));
+	} else {
+		// TODO(piero): Disable raw input
+	}
+}
+
+b32 OS_setRelativeMouseMode(OSWindowHandle handle, b32 enable) {
+	if (enable) {
+		Win32Window* window = OS_windowFromHandle(handle);
+
+		OS_setRawMouseInputEnabled(handle, enable);
+		win32GfxState->mouseRelativeMode = true;
+		ShowCursor(0);
+		// OS_setCursor(OS_CursorType_Hidden);
+
+		RECT rect;
+		GetClientRect(window->hwnd, &rect);
+		MapWindowPoints(window->hwnd, nullptr, (LPPOINT)&rect, 2);
+		ClipCursor(&rect);
+	} else {
+		win32GfxState->mouseRelativeMode = false;
+		ShowCursor(1);
+		// OS_setCursor(OS_CursorType_Pointer);
+		ClipCursor(nullptr);
+	}
+
+	return true;
+}
+
+b32 OS_getRelativeMouseMode(OSWindowHandle handle) {
+	return win32GfxState->mouseRelativeMode;
+}
+
+void OS_setCursor(OS_CursorType type) {
+	win32GfxState->cursorType = type;
+}
+
 void OS_windowClearCustomBorderData(OSWindowHandle handle) {
 	Win32Window* window = OS_windowFromHandle(handle);
 	arenaClear(window->paintArena);
@@ -612,7 +711,7 @@ void OS_windowPushCustomEdges(OSWindowHandle handle, f32 thickness) {
 	window->customBorderEdgeThickness = thickness;
 }
 
-void OS_windowPushCustomTitlebarClientArea(OSWindowHandle handle, Rect2D rect) {
+void OS_windowPushCustomTitlebarClientArea(OSWindowHandle handle, Region2D rect) {
 	Win32Window* window = OS_windowFromHandle(handle);
 	Win32TitleBarClientArea* area = PushStruct(window->paintArena, Win32TitleBarClientArea);
 	if (area) {
